@@ -1,0 +1,91 @@
+from pydantic import BaseModel, Field
+from typing import List, Optional, Dict, Any
+from enum import Enum
+
+
+class CourseDifficulty(str, Enum):
+    BEGINNER = "beginner"
+    INTERMEDIATE = "intermediate"
+    ADVANCED = "advanced"
+
+
+class CourseSettings(BaseModel):
+    """Настройки курса от фронтенда"""
+    title: str = Field(..., description="Название курса")
+    description: Optional[str] = Field(None, description="Описание курса")
+    difficulty: CourseDifficulty = Field(CourseDifficulty.INTERMEDIATE, description="Уровень сложности")
+    duration_hours: int = Field(10, description="Продолжительность курса в часах")
+    target_audience: str = Field(..., description="Целевая аудитория")
+    learning_objectives: List[str] = Field(default_factory=list, description="Цели обучения")
+    custom_category_name: Optional[str] = Field(None, description="Пользовательское название категории")
+    additional_requirements: Optional[str] = Field(None, description="Дополнительные требования")
+
+
+class VideoMaterial(BaseModel):
+    """Видео материал"""
+    title: str
+    url: str
+    description: Optional[str] = None
+    duration: Optional[str] = None
+    channel: Optional[str] = None
+
+
+class AdditionalMaterial(BaseModel):
+    """Дополнительный материал"""
+    title: str
+    type: str = Field(..., description="Тип материала: article, book, website, etc.")
+    url: Optional[str] = None
+    description: Optional[str] = None
+
+
+class PracticeExercise(BaseModel):
+    """Практическое упражнение"""
+    title: str
+    description: str
+    difficulty: str = Field("medium", description="easy, medium, hard")
+    estimated_time: Optional[str] = None
+    solution_hint: Optional[str] = None
+
+
+class Lesson(BaseModel):
+    """Урок"""
+    title: str
+    content: str
+    duration_minutes: int
+    exercises: List[str] = Field(default_factory=list)
+    practice_exercises: List[PracticeExercise] = Field(default_factory=list, description="Детальные практические упражнения")
+    videos: List[VideoMaterial] = Field(default_factory=list, description="Рекомендуемые видео")
+    additional_materials: List[AdditionalMaterial] = Field(default_factory=list, description="Дополнительные материалы")
+
+
+class Module(BaseModel):
+    """Модуль курса"""
+    title: str
+    description: str
+    lessons: List[Lesson] = Field(default_factory=list)
+    duration_hours: float
+
+
+class Course(BaseModel):
+    """Полный курс"""
+    id: str
+    title: str
+    description: str
+    category: str
+    difficulty: CourseDifficulty
+    modules: List[Module] = Field(default_factory=list)
+    total_duration_hours: float
+    learning_objectives: List[str] = Field(default_factory=list)
+
+
+class CourseGenerationRequest(BaseModel):
+    """Запрос на генерацию курса"""
+    settings: CourseSettings
+
+
+class CourseGenerationResponse(BaseModel):
+    """Ответ с сгенерированным курсом"""
+    success: bool
+    course: Optional[Course] = None
+    error: Optional[str] = None
+    message: Optional[str] = None

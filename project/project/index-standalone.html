@@ -1,0 +1,1104 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fill AI - Персонализированные курсы</title>
+    
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- React и ReactDOM через CDN -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    
+    <!-- Babel для JSX -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        // Simple page overlay
+        function PagePanel({ title, description, onClose, children }) {
+            return (
+                <div className="fixed inset-0 modal-backdrop z-50 flex items-center justify-center p-4 fade-in">
+                    <div className="bg-[#16171a] border border-gray-800 rounded-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto shadow-2xl">
+                        <div className="sticky top-0 bg-[#16171a] border-b border-gray-800 p-6 flex items-center justify-between">
+                            <div>
+                                <h2 className="text-2xl font-bold text-gray-100">{title}</h2>
+                                {description && <p className="text-gray-400 mt-1 text-sm">{description}</p>}
+                            </div>
+                            <button
+                                onClick={onClose}
+                                className="p-2 hover:bg-[#202127] rounded-lg transition-colors text-gray-400"
+                            >
+                                ✕
+                            </button>
+                        </div>
+                        <div className="p-6 space-y-4 text-gray-200">
+                            {children}
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+                'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+                sans-serif;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            background: #111113;
+            color: #e5e5e5;
+            overflow: hidden;
+        }
+        
+        #root {
+            width: 100%;
+            height: 100vh;
+        }
+        
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: #2a2a2a;
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: #4a4a4a;
+            border-radius: 4px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: #5a5a5a;
+        }
+        
+        /* Анимации */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+        
+        @keyframes slideUp {
+            from { transform: translateY(100%); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        
+        .fade-in {
+            animation: fadeIn 0.3s ease-out;
+        }
+        
+        .pulse-animation {
+            animation: pulse 2s infinite;
+        }
+        
+        .slide-up {
+            animation: slideUp 0.4s ease-out;
+        }
+        
+        /* Градиенты для кругов */
+        .circle-gradient-1 {
+            background: radial-gradient(circle at 30% 30%, #3a3a3f 0%, #2a2a2f 80%);
+        }
+        
+        .circle-gradient-2 {
+            background: radial-gradient(circle at 30% 30%, #44444a 0%, #2f3035 80%);
+        }
+        
+        .circle-gradient-3 {
+            background: radial-gradient(circle at 30% 30%, #4c4c52 0%, #34353b 80%);
+        }
+        
+        .circle-gradient-4 {
+            background: radial-gradient(circle at 30% 30%, #55565d 0%, #383941 80%);
+        }
+        
+        /* Эффект свечения при наведении */
+        .circle-node {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            cursor: move;
+        }
+        
+        .circle-node:hover {
+            transform: scale(1.1);
+            box-shadow: 0 0 20px rgba(100, 116, 139, 0.5);
+        }
+        
+        .circle-node.dragging {
+            opacity: 0.8;
+            z-index: 1000;
+        }
+        
+        /* Стили для модальных окон */
+        .modal-backdrop {
+            backdrop-filter: blur(4px);
+            background: rgba(0, 0, 0, 0.7);
+        }
+        
+        /* Плавные переходы */
+        .transition-smooth {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+    
+    <script type="text/babel">
+        const { useState, useEffect, useRef, useCallback } = React;
+        
+        // Mock Store с начальными данными
+        let courses = [
+            {
+                id: 'present-simple-1',
+                title: 'Present Simple',
+                description: 'Изучите основы времени Present Simple в английском языке. Курс включает теорию, примеры и практические упражнения.',
+                category: 'english',
+                format: 'Смешанный',
+                level: 'A2',
+                duration: '2 недели',
+                intensity: 'Средняя',
+                goal: 'Освоить базовое использование Present Simple',
+                position: { x: 300, y: 200 },
+                size: 80,
+                color: 1,
+                createdAt: new Date().toISOString(),
+                modules: [
+                    {
+                        id: 'm1',
+                        title: 'Введение в Present Simple',
+                        lessons: [
+                            {
+                                id: 'l1',
+                                title: 'Что такое Present Simple',
+                                content: 'Present Simple используется для описания постоянных действий, привычек и фактов. Например: "I work every day" или "The sun rises in the east".'
+                            },
+                            {
+                                id: 'l2',
+                                title: 'Формы глаголов',
+                                content: 'В третьем лице единственного числа добавляется -s или -es к глаголу: work → works, go → goes, study → studies.'
+                            }
+                        ]
+                    },
+                    {
+                        id: 'm2',
+                        title: 'Практика',
+                        lessons: [
+                            {
+                                id: 'l3',
+                                title: 'Упражнения на Present Simple',
+                                content: 'Выполните упражнения на образование утвердительных, отрицательных и вопросительных предложений.'
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                id: 'react-basics-1',
+                title: 'Основы React',
+                description: 'Изучите основы библиотеки React для создания пользовательских интерфейсов.',
+                category: 'programming',
+                format: 'Видеоуроки',
+                level: 'B1',
+                duration: '4 недели',
+                intensity: 'Высокая',
+                goal: 'Научиться создавать React-приложения',
+                position: { x: 600, y: 300 },
+                size: 75,
+                color: 2,
+                createdAt: new Date().toISOString(),
+                modules: [
+                    {
+                        id: 'm3',
+                        title: 'Компоненты',
+                        lessons: [
+                            {
+                                id: 'l4',
+                                title: 'Функциональные компоненты',
+                                content: 'Изучите создание функциональных компонентов в React.'
+                            }
+                        ]
+                    }
+                ]
+            }
+        ];
+        
+        function generateMockCourse(topic, settings) {
+            const courseId = crypto.randomUUID();
+            const colors = [1, 2, 3, 4];
+            const randomColor = colors[Math.floor(Math.random() * colors.length)];
+            
+            // Генерируем случайную позицию
+            const x = Math.random() * (window.innerWidth - 200) + 100;
+            const y = Math.random() * (window.innerHeight - 300) + 150;
+            
+            const course = {
+                id: courseId,
+                title: topic,
+                description: `Автоматически сгенерированный курс по теме "${topic}". ${settings.preferences || ''}`,
+                category: settings.category || 'english',
+                format: settings.format || 'Смешанный',
+                level: settings.level || 'B1',
+                duration: settings.duration || '4 недели',
+                intensity: settings.intensity || 'Средняя',
+                goal: settings.goal || 'Изучить тему',
+                position: { x, y },
+                size: 70 + Math.random() * 30,
+                color: randomColor,
+                createdAt: new Date().toISOString(),
+                modules: [
+                    {
+                        id: crypto.randomUUID(),
+                        title: 'Введение',
+                        lessons: [
+                            {
+                                id: crypto.randomUUID(),
+                                title: `Что такое ${topic}`,
+                                content: `В этом уроке мы изучим основы темы "${topic}". Это важная тема, которая поможет вам понять ключевые концепции.`
+                            },
+                            {
+                                id: crypto.randomUUID(),
+                                title: 'Примеры использования',
+                                content: `Рассмотрим практические примеры применения знаний о "${topic}" в реальных ситуациях.`
+                            }
+                        ]
+                    },
+                    {
+                        id: crypto.randomUUID(),
+                        title: 'Практика',
+                        lessons: [
+                            {
+                                id: crypto.randomUUID(),
+                                title: 'Упражнения',
+                                content: `Выполните практические упражнения для закрепления материала по теме "${topic}".`
+                            }
+                        ]
+                    }
+                ]
+            };
+            
+            courses.push(course);
+            return course;
+        }
+        
+        function getCourses() {
+            return courses;
+        }
+        
+        function deleteCourse(courseId) {
+            courses = courses.filter(c => c.id !== courseId);
+        }
+        
+        function updateCourse(courseId, updates) {
+            const index = courses.findIndex(c => c.id === courseId);
+            if (index !== -1) {
+                courses[index] = { ...courses[index], ...updates };
+            }
+        }
+        
+        // TopBar Component
+        function TopBar({ onOpenPage }) {
+            const [showLanguageMenu, setShowLanguageMenu] = useState(false);
+            const [showProfileMenu, setShowProfileMenu] = useState(false);
+            
+            return (
+                <div className="w-full h-16 bg-[#16171a] border-b border-gray-800 flex items-center justify-between px-6 shadow-lg">
+                    <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-2">
+                            <div className="w-10 h-10 bg-[#24252a] rounded-lg flex items-center justify-center shadow-md border border-gray-700">
+                                <span className="text-white font-bold text-lg">F</span>
+                            </div>
+                            <span className="text-xl font-bold text-gray-100">
+                                Fill AI
+                            </span>
+                        </div>
+                    </div>
+                    
+                    <div className="flex items-center gap-3">
+                        {/* Язык */}
+                        <div className="relative">
+                            <button
+                                onClick={() => {
+                                    setShowLanguageMenu(!showLanguageMenu);
+                                    setShowProfileMenu(false);
+                                }}
+                                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#202127] hover:bg-[#2a2b31] transition-colors text-gray-100 text-sm border border-gray-700"
+                            >
+                                <span>🌐</span>
+                                <span>RU</span>
+                                <span>▼</span>
+                            </button>
+                            {showLanguageMenu && (
+                                <div className="absolute right-0 mt-2 w-32 bg-[#202127] border border-gray-700 rounded-lg shadow-xl z-50 fade-in">
+                                    <button className="w-full text-left px-4 py-2 hover:bg-[#2a2b31] text-gray-100 text-sm rounded-t-lg">
+                                        Русский
+                                    </button>
+                                    <button className="w-full text-left px-4 py-2 hover:bg-[#2a2b31] text-gray-100 text-sm">
+                                        English
+                                    </button>
+                                    <button className="w-full text-left px-4 py-2 hover:bg-[#2a2b31] text-gray-100 text-sm rounded-b-lg">
+                                        Español
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                        
+                        {/* FAQ */}
+                        <button
+                            onClick={() => onOpenPage('faq')}
+                            className="px-4 py-2 rounded-lg bg-[#202127] hover:bg-[#2a2b31] transition-colors text-gray-100 text-sm border border-gray-700"
+                        >
+                            FAQ
+                        </button>
+                        
+                        {/* Профиль */}
+                        <div className="relative">
+                            <button
+                                onClick={() => {
+                                    setShowProfileMenu(!showProfileMenu);
+                                    setShowLanguageMenu(false);
+                                }}
+                                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#202127] hover:bg-[#2a2b31] transition-colors text-gray-100 text-sm border border-gray-700"
+                            >
+                                <div className="w-6 h-6 bg-gray-600 rounded-full"></div>
+                                <span>Профиль</span>
+                                <span>▼</span>
+                            </button>
+                            {showProfileMenu && (
+                                <div className="absolute right-0 mt-2 w-48 bg-[#202127] border border-gray-700 rounded-lg shadow-xl z-50 fade-in">
+                                    <button
+                                        onClick={() => onOpenPage('profile')}
+                                        className="w-full text-left px-4 py-2 hover:bg-[#2a2b31] text-gray-100 text-sm rounded-t-lg"
+                                    >
+                                        Профиль
+                                    </button>
+                                    <button className="w-full text-left px-4 py-2 hover:bg-[#2a2b31] text-gray-100 text-sm">
+                                        Настройки
+                                    </button>
+                                    <button className="w-full text-left px-4 py-2 hover:bg-[#2a2b31] text-gray-100 text-sm rounded-b-lg">
+                                        Выйти
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+        
+        // Circle Node Component
+        function CircleNode({ course, onClick, onDelete, onEdit, onDragStart, onDrag, onDragEnd, isDragging }) {
+            const nodeRef = useRef(null);
+            const [isHovered, setIsHovered] = useState(false);
+            
+            const gradientClass = `circle-gradient-${course.color}`;
+            const displayTitle = course.title.length > 15 
+                ? course.title.substring(0, 15) + '...' 
+                : course.title;
+            
+            return (
+                <div
+                    ref={nodeRef}
+                    className={`circle-node absolute ${gradientClass} rounded-full flex flex-col items-center justify-center text-white shadow-lg border-2 border-gray-600 ${
+                        isDragging ? 'dragging' : ''
+                    }`}
+                    style={{
+                        left: `${course.position.x}px`,
+                        top: `${course.position.y}px`,
+                        width: `${course.size}px`,
+                        height: `${course.size}px`,
+                        transform: isHovered ? 'scale(1.1)' : 'scale(1)',
+                    }}
+                    onMouseEnter={() => setIsHovered(true)}
+                    onMouseLeave={() => setIsHovered(false)}
+                    onMouseDown={(e) => {
+                        if (e.button === 0) {
+                            onDragStart(e, course.id);
+                        }
+                    }}
+                    onClick={(e) => {
+                        if (!isDragging) {
+                            onClick(course);
+                        }
+                    }}
+                >
+                    <div className="text-xs font-semibold text-center px-2 mb-1">
+                        {displayTitle}
+                    </div>
+                    <div className="text-[10px] text-gray-300 opacity-75">
+                        {course.level}
+                    </div>
+                    {isHovered && (
+                        <div className="absolute -top-8 flex gap-1 fade-in">
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    onEdit(course);
+                                }}
+                                className="w-6 h-6 bg-gray-700 hover:bg-gray-600 rounded-full flex items-center justify-center text-xs"
+                                title="Редактировать"
+                            >
+                                ✏️
+                            </button>
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (window.confirm('Удалить курс?')) {
+                                        onDelete(course.id);
+                                    }
+                                }}
+                                className="w-6 h-6 bg-red-700 hover:bg-red-600 rounded-full flex items-center justify-center text-xs"
+                                title="Удалить"
+                            >
+                                🗑️
+                            </button>
+                        </div>
+                    )}
+                </div>
+            );
+        }
+        
+        // Course Preview Modal
+        function CoursePreview({ course, onClose, onEdit, onDelete }) {
+            if (!course) return null;
+            
+            return (
+                <div className="fixed inset-0 modal-backdrop z-50 flex items-center justify-center p-4 slide-up">
+                    <div className="bg-gray-800 border border-gray-700 rounded-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto shadow-2xl">
+                        <div className="sticky top-0 bg-gray-800 border-b border-gray-700 p-6 flex items-center justify-between">
+                            <h2 className="text-2xl font-bold text-gray-100">{course.title}</h2>
+                            <div className="flex gap-2">
+                                <button
+                                    onClick={() => {
+                                        onEdit(course);
+                                        onClose();
+                                    }}
+                                    className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-gray-200 text-sm transition-colors"
+                                >
+                                    Редактировать
+                                </button>
+                                <button
+                                    onClick={onClose}
+                                    className="p-2 hover:bg-gray-700 rounded-lg transition-colors text-gray-400"
+                                >
+                                    ✕
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div className="p-6 space-y-6">
+                            <div>
+                                <p className="text-gray-300">{course.description}</p>
+                            </div>
+                            
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                <div className="bg-gray-700 border border-gray-600 rounded-lg p-4">
+                                    <div className="text-gray-400 mb-2 text-sm">Формат</div>
+                                    <p className="text-gray-100 font-medium">{course.format}</p>
+                                </div>
+                                <div className="bg-gray-700 border border-gray-600 rounded-lg p-4">
+                                    <div className="text-gray-400 mb-2 text-sm">Уровень</div>
+                                    <p className="text-gray-100 font-medium">{course.level}</p>
+                                </div>
+                                <div className="bg-gray-700 border border-gray-600 rounded-lg p-4">
+                                    <div className="text-gray-400 mb-2 text-sm">Длительность</div>
+                                    <p className="text-gray-100 font-medium">{course.duration}</p>
+                                </div>
+                                <div className="bg-gray-700 border border-gray-600 rounded-lg p-4">
+                                    <div className="text-gray-400 mb-2 text-sm">Интенсивность</div>
+                                    <p className="text-gray-100 font-medium">{course.intensity}</p>
+                                </div>
+                            </div>
+                            
+                            {course.goal && (
+                                <div>
+                                    <h3 className="text-lg font-semibold text-gray-100 mb-2">Цель обучения</h3>
+                                    <p className="text-gray-300">{course.goal}</p>
+                                </div>
+                            )}
+                            
+                            <div>
+                                <h3 className="text-lg font-semibold text-gray-100 mb-4">Структура курса</h3>
+                                <div className="space-y-4">
+                                    {course.modules.map((module, moduleIndex) => (
+                                        <div
+                                            key={module.id}
+                                            className="bg-gray-700 border border-gray-600 rounded-lg p-4"
+                                        >
+                                            <h4 className="text-gray-100 font-semibold mb-3">
+                                                Модуль {moduleIndex + 1}: {module.title}
+                                            </h4>
+                                            <div className="space-y-2 ml-4">
+                                                {module.lessons.map((lesson, lessonIndex) => (
+                                                    <div
+                                                        key={lesson.id}
+                                                        className="flex items-start gap-3 text-gray-300"
+                                                    >
+                                                        <span className="text-gray-400 font-medium">
+                                                            {moduleIndex + 1}.{lessonIndex + 1}
+                                                        </span>
+                                                        <span>{lesson.title}</span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+        
+        // Edit Course Modal
+        function EditCourseModal({ course, onClose, onSave }) {
+            const [title, setTitle] = useState(course?.title || '');
+            
+            useEffect(() => {
+                if (course) {
+                    setTitle(course.title);
+                }
+            }, [course]);
+            
+            if (!course) return null;
+            
+            const handleSave = () => {
+                if (title.trim()) {
+                    onSave(course.id, { title: title.trim() });
+                    onClose();
+                }
+            };
+            
+            return (
+                <div className="fixed inset-0 modal-backdrop z-50 flex items-center justify-center p-4 fade-in">
+                    <div className="bg-gray-800 border border-gray-700 rounded-xl w-full max-w-md shadow-2xl">
+                        <div className="p-6 border-b border-gray-700">
+                            <h2 className="text-xl font-bold text-gray-100">Редактировать курс</h2>
+                        </div>
+                        
+                        <div className="p-6 space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-300 mb-2">
+                                    Название курса
+                                </label>
+                                <input
+                                    type="text"
+                                    value={title}
+                                    onChange={(e) => setTitle(e.target.value)}
+                                    className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-gray-100 focus:outline-none focus:border-gray-500"
+                                    placeholder="Введите название"
+                                    autoFocus
+                                />
+                            </div>
+                            
+                            <div className="flex gap-4 pt-4">
+                                <button
+                                    onClick={onClose}
+                                    className="flex-1 px-6 py-3 bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors text-gray-200"
+                                >
+                                    Отмена
+                                </button>
+                                <button
+                                    onClick={handleSave}
+                                    className="flex-1 px-6 py-3 bg-gray-600 hover:bg-gray-500 rounded-lg transition-colors text-gray-100 font-semibold"
+                                >
+                                    Сохранить
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+        
+        // Course Settings Modal
+        function CourseSettingsModal({ isOpen, onClose, onSubmit, topic }) {
+            const [settings, setSettings] = useState({
+                format: 'Смешанный',
+                level: 'B1',
+                preferences: '',
+                duration: '4 недели',
+                intensity: 'Средняя',
+                goal: '',
+                category: 'english'
+            });
+            
+            if (!isOpen) return null;
+            
+            const handleSubmit = (e) => {
+                e.preventDefault();
+                onSubmit({ ...settings, topic });
+                onClose();
+            };
+            
+            return (
+                <div className="fixed inset-0 modal-backdrop z-50 flex items-center justify-center p-4 slide-up">
+                    <div className="bg-gray-800 border border-gray-700 rounded-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl">
+                        <div className="sticky top-0 bg-gray-800 border-b border-gray-700 p-6 flex items-center justify-between">
+                            <h2 className="text-2xl font-bold text-gray-100">Настройки курса</h2>
+                            <button
+                                onClick={onClose}
+                                className="p-2 hover:bg-gray-700 rounded-lg transition-colors text-gray-400"
+                            >
+                                ✕
+                            </button>
+                        </div>
+                        
+                        <form onSubmit={handleSubmit} className="p-6 space-y-6">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-300 mb-2">
+                                    Тема курса
+                                </label>
+                                <input
+                                    type="text"
+                                    value={topic}
+                                    disabled
+                                    className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-gray-300"
+                                />
+                            </div>
+                            
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                                        Формат курса
+                                    </label>
+                                    <select
+                                        value={settings.format}
+                                        onChange={(e) => setSettings({ ...settings, format: e.target.value })}
+                                        className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-gray-100"
+                                    >
+                                        <option value="Видеоуроки">Видеоуроки</option>
+                                        <option value="Текстовый">Текстовый</option>
+                                        <option value="Смешанный">Смешанный</option>
+                                    </select>
+                                </div>
+                                
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                                        Уровень
+                                    </label>
+                                    <select
+                                        value={settings.level}
+                                        onChange={(e) => setSettings({ ...settings, level: e.target.value })}
+                                        className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-gray-100"
+                                    >
+                                        <option value="A1">A1</option>
+                                        <option value="A2">A2</option>
+                                        <option value="B1">B1</option>
+                                        <option value="B2">B2</option>
+                                        <option value="C1">C1</option>
+                                    </select>
+                                </div>
+                                
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                                        Длительность
+                                    </label>
+                                    <select
+                                        value={settings.duration}
+                                        onChange={(e) => setSettings({ ...settings, duration: e.target.value })}
+                                        className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-gray-100"
+                                    >
+                                        <option value="1 неделя">1 неделя</option>
+                                        <option value="2 недели">2 недели</option>
+                                        <option value="4 недели">4 недели</option>
+                                        <option value="8 недель">8 недель</option>
+                                    </select>
+                                </div>
+                                
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                                        Интенсивность
+                                    </label>
+                                    <select
+                                        value={settings.intensity}
+                                        onChange={(e) => setSettings({ ...settings, intensity: e.target.value })}
+                                        className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-gray-100"
+                                    >
+                                        <option value="Низкая">Низкая</option>
+                                        <option value="Средняя">Средняя</option>
+                                        <option value="Высокая">Высокая</option>
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <label className="block text-sm font-medium text-gray-300 mb-2">
+                                    Предпочтения
+                                </label>
+                                <textarea
+                                    value={settings.preferences}
+                                    onChange={(e) => setSettings({ ...settings, preferences: e.target.value })}
+                                    rows={3}
+                                    placeholder="Опишите ваши предпочтения..."
+                                    className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-gray-100 placeholder-gray-500"
+                                />
+                            </div>
+                            
+                            <div>
+                                <label className="block text-sm font-medium text-gray-300 mb-2">
+                                    Цель обучения
+                                </label>
+                                <textarea
+                                    value={settings.goal}
+                                    onChange={(e) => setSettings({ ...settings, goal: e.target.value })}
+                                    rows={3}
+                                    placeholder="Опишите вашу цель обучения..."
+                                    className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-gray-100 placeholder-gray-500"
+                                />
+                            </div>
+                            
+                            <div className="flex gap-4 pt-4">
+                                <button
+                                    type="button"
+                                    onClick={onClose}
+                                    className="flex-1 px-6 py-3 bg-gray-700 hover:bg-gray-600 rounded-lg transition-colors text-gray-200"
+                                >
+                                    Отмена
+                                </button>
+                                <button
+                                    type="submit"
+                                    className="flex-1 px-6 py-3 bg-gray-600 hover:bg-gray-500 rounded-lg transition-colors text-gray-100 font-semibold"
+                                >
+                                    Сгенерировать курс
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            );
+        }
+        
+        // Main App
+        function App() {
+            const [coursesList, setCoursesList] = useState(getCourses());
+            const [selectedCourse, setSelectedCourse] = useState(null);
+            const [editingCourse, setEditingCourse] = useState(null);
+            const [isModalOpen, setIsModalOpen] = useState(false);
+            const [isGenerating, setIsGenerating] = useState(false);
+            const [topic, setTopic] = useState('');
+            const [draggingCourseId, setDraggingCourseId] = useState(null);
+            const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+            const [page, setPage] = useState(null); // faq | profile | null
+            
+            const containerRef = useRef(null);
+            
+            const categoryAnchors = React.useMemo(() => ({
+                english: { x: 180, y: 160 },
+                programming: { x: window.innerWidth / 2, y: 140 },
+                design: { x: window.innerWidth - 200, y: 160 },
+                default: { x: window.innerWidth / 2, y: 200 }
+            }), []);
+            
+            // Обновление списка курсов
+            const refreshCourses = useCallback(() => {
+                setCoursesList([...getCourses()]);
+            }, []);
+            
+            // Обработка начала перетаскивания
+            const handleDragStart = useCallback((e, courseId) => {
+                const course = coursesList.find(c => c.id === courseId);
+                if (!course) return;
+                
+                const rect = e.currentTarget.getBoundingClientRect();
+                const offsetX = e.clientX - rect.left - course.size / 2;
+                const offsetY = e.clientY - rect.top - course.size / 2;
+                
+                setDraggingCourseId(courseId);
+                setDragOffset({ x: offsetX, y: offsetY });
+                
+                e.preventDefault();
+            }, [coursesList]);
+            
+            // Обработка перетаскивания
+            useEffect(() => {
+                const handleMouseMove = (e) => {
+                    if (draggingCourseId && containerRef.current) {
+                        const rect = containerRef.current.getBoundingClientRect();
+                        const x = e.clientX - rect.left - dragOffset.x;
+                        const y = e.clientY - rect.top - dragOffset.y;
+                        
+                        updateCourse(draggingCourseId, {
+                            position: {
+                                x: Math.max(0, Math.min(x, window.innerWidth - 100)),
+                                y: Math.max(0, Math.min(y, window.innerHeight - 200))
+                            }
+                        });
+                        refreshCourses();
+                    }
+                };
+                
+                const handleMouseUp = () => {
+                    setDraggingCourseId(null);
+                };
+                
+                if (draggingCourseId) {
+                    window.addEventListener('mousemove', handleMouseMove);
+                    window.addEventListener('mouseup', handleMouseUp);
+                }
+                
+                return () => {
+                    window.removeEventListener('mousemove', handleMouseMove);
+                    window.removeEventListener('mouseup', handleMouseUp);
+                };
+            }, [draggingCourseId, dragOffset, refreshCourses]);
+            
+            // Удаление курса
+            const handleDelete = useCallback((courseId) => {
+                deleteCourse(courseId);
+                refreshCourses();
+                if (selectedCourse?.id === courseId) {
+                    setSelectedCourse(null);
+                }
+            }, [selectedCourse, refreshCourses]);
+            
+            // Редактирование курса
+            const handleEdit = useCallback((course) => {
+                setEditingCourse(course);
+            }, []);
+            
+            // Сохранение изменений
+            const handleSaveEdit = useCallback((courseId, updates) => {
+                updateCourse(courseId, updates);
+                refreshCourses();
+                if (selectedCourse?.id === courseId) {
+                    setSelectedCourse({ ...selectedCourse, ...updates });
+                }
+            }, [selectedCourse, refreshCourses]);
+            
+            // Генерация курса
+            const handleGenerateCourse = useCallback(async (settings) => {
+                setIsModalOpen(false);
+                setIsGenerating(true);
+                
+                await new Promise(resolve => setTimeout(resolve, 1500));
+                
+                const course = generateMockCourse(settings.topic, settings);
+                refreshCourses();
+                setIsGenerating(false);
+                setTopic('');
+            }, [refreshCourses]);
+            
+            // Открытие формы
+            const handleTopicSubmit = (e) => {
+                e.preventDefault();
+                if (topic.trim()) {
+                    setIsModalOpen(true);
+                }
+            };
+            
+            // Соединения для отрисовки линий
+            const connections = React.useMemo(() => {
+                const result = [];
+                const groups = {};
+                coursesList.forEach((c, idx) => {
+                    const anchor = categoryAnchors[c.category] || categoryAnchors.default;
+                    const center = { x: c.position.x + c.size / 2, y: c.position.y + c.size / 2 };
+                    result.push({
+                        id: `a-${c.id}`,
+                        from: anchor,
+                        to: center
+                    });
+                    
+                    if (!groups[c.category]) groups[c.category] = [];
+                    groups[c.category].push({ ...c, center, idx });
+                });
+                
+                Object.values(groups).forEach(list => {
+                    list.sort((a, b) => (a.createdAt || '').localeCompare(b.createdAt || ''));
+                    for (let i = 0; i < list.length - 1; i++) {
+                        result.push({
+                            id: `c-${list[i].id}-${list[i+1].id}`,
+                            from: list[i].center,
+                            to: list[i+1].center
+                        });
+                    }
+                });
+                
+                return result;
+            }, [coursesList, categoryAnchors]);
+            
+            return (
+                <div className="flex flex-col h-screen bg-[#111113]">
+                    <TopBar onOpenPage={setPage} />
+                    
+                    {/* Основная область с графом */}
+                    <div 
+                        ref={containerRef}
+                        className="flex-1 relative overflow-hidden"
+                        style={{ height: 'calc(100vh - 64px - 120px)' }}
+                    >
+                        {/* SVG линии */}
+                        <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ filter: 'drop-shadow(0 0 6px rgba(75,85,99,0.3))' }}>
+                            {connections.map(conn => (
+                                <line
+                                    key={conn.id}
+                                    x1={conn.from.x}
+                                    y1={conn.from.y}
+                                    x2={conn.to.x}
+                                    y2={conn.to.y}
+                                    stroke="url(#edgeGradient)"
+                                    strokeWidth="2.5"
+                                    strokeLinecap="round"
+                                    opacity="0.9"
+                                />
+                            ))}
+                            <defs>
+                                <linearGradient id="edgeGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                                    <stop offset="0%" stopColor="#6b7280" stopOpacity="0.9" />
+                                    <stop offset="100%" stopColor="#4b5563" stopOpacity="0.8" />
+                                </linearGradient>
+                            </defs>
+                        </svg>
+                        
+                        {coursesList.map((course) => (
+                            <CircleNode
+                                key={course.id}
+                                course={course}
+                                onClick={setSelectedCourse}
+                                onDelete={handleDelete}
+                                onEdit={handleEdit}
+                                onDragStart={handleDragStart}
+                                isDragging={draggingCourseId === course.id}
+                            />
+                        ))}
+                        
+                        {coursesList.length === 0 && (
+                            <div className="absolute inset-0 flex items-center justify-center">
+                                <div className="text-center text-gray-500">
+                                    <div className="text-4xl mb-4">📚</div>
+                                    <p className="text-lg">Создайте свой первый курс</p>
+                                </div>
+                            </div>
+                        )}
+                        
+                        {isGenerating && (
+                            <div className="absolute inset-0 flex items-center justify-center bg-gray-900 bg-opacity-80 z-40">
+                                <div className="text-center">
+                                    <div className="w-16 h-16 border-4 border-gray-600 border-t-gray-400 rounded-full animate-spin mx-auto mb-4"></div>
+                                    <p className="text-gray-300">Генерация курса...</p>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                    
+                    {/* Форма внизу */}
+                    <div className="h-32 bg-gray-800 border-t border-gray-700 flex items-center justify-center px-6 shadow-lg slide-up">
+                        <form onSubmit={handleTopicSubmit} className="w-full max-w-4xl flex gap-4">
+                            <input
+                                type="text"
+                                value={topic}
+                                onChange={(e) => setTopic(e.target.value)}
+                                placeholder="Введите тему для создания курса (например: Present Simple)"
+                                className="flex-1 px-6 py-4 bg-gray-700 border-2 border-gray-600 rounded-xl text-gray-100 text-lg placeholder-gray-400 focus:outline-none focus:border-gray-500 transition-colors"
+                            />
+                            <button
+                                type="submit"
+                                disabled={!topic.trim() || isGenerating}
+                                className="px-8 py-4 bg-gray-600 hover:bg-gray-500 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl transition-colors text-gray-100 font-semibold text-lg"
+                            >
+                                Сформулировать запрос
+                            </button>
+                        </form>
+                    </div>
+                    
+                    {/* Модальные окна */}
+                    <CourseSettingsModal
+                        isOpen={isModalOpen}
+                        onClose={() => setIsModalOpen(false)}
+                        onSubmit={handleGenerateCourse}
+                        topic={topic}
+                    />
+                    
+                    {selectedCourse && (
+                        <CoursePreview
+                            course={selectedCourse}
+                            onClose={() => setSelectedCourse(null)}
+                            onEdit={handleEdit}
+                            onDelete={handleDelete}
+                        />
+                    )}
+                    
+                    {editingCourse && (
+                        <EditCourseModal
+                            course={editingCourse}
+                            onClose={() => setEditingCourse(null)}
+                            onSave={handleSaveEdit}
+                        />
+                    )}
+                    
+                    {/* Статичные страницы */} 
+                    {page === 'faq' && (
+                        <PagePanel
+                            title="FAQ"
+                            description="Ответы на самые популярные вопросы о Fill AI."
+                            onClose={() => setPage(null)}
+                        >
+                            <div className="space-y-3 text-sm leading-relaxed">
+                                <div className="p-4 bg-[#1c1d22] border border-gray-800 rounded-lg">
+                                    <div className="text-gray-300 font-semibold mb-1">Как работает демо?</div>
+                                    <div className="text-gray-400">Все данные моковые, курсы генерируются локально без сервера.</div>
+                                </div>
+                                <div className="p-4 bg-[#1c1d22] border border-gray-800 rounded-lg">
+                                    <div className="text-gray-300 font-semibold mb-1">Можно ли двигать курсы?</div>
+                                    <div className="text-gray-400">Да, зажмите круг и перетащите его в нужную позицию.</div>
+                                </div>
+                                <div className="p-4 bg-[#1c1d22] border border-gray-800 rounded-lg">
+                                    <div className="text-gray-300 font-semibold mb-1">Как отредактировать курс?</div>
+                                    <div className="text-gray-400">Наведите на круг, нажмите ✏️, измените название и сохраните.</div>
+                                </div>
+                            </div>
+                        </PagePanel>
+                    )}
+                    
+                    {page === 'profile' && (
+                        <PagePanel
+                            title="Профиль"
+                            description="Управление профилем пользователя."
+                            onClose={() => setPage(null)}
+                        >
+                            <div className="grid md:grid-cols-2 gap-4">
+                                <div className="p-4 bg-[#1c1d22] border border-gray-800 rounded-lg">
+                                    <div className="text-gray-300 font-semibold mb-2">Имя</div>
+                                    <div className="text-gray-100">Demo User</div>
+                                </div>
+                                <div className="p-4 bg-[#1c1d22] border border-gray-800 rounded-lg">
+                                    <div className="text-gray-300 font-semibold mb-2">Тариф</div>
+                                    <div className="text-gray-100">Free Demo</div>
+                                </div>
+                                <div className="p-4 bg-[#1c1d22] border border-gray-800 rounded-lg">
+                                    <div className="text-gray-300 font-semibold mb-2">Email</div>
+                                    <div className="text-gray-100">demo@fill.ai</div>
+                                </div>
+                                <div className="p-4 bg-[#1c1d22] border border-gray-800 rounded-lg">
+                                    <div className="text-gray-300 font-semibold mb-2">Уведомления</div>
+                                    <div className="text-gray-400 text-sm">Настройки уведомлений доступны в полной версии.</div>
+                                </div>
+                            </div>
+                        </PagePanel>
+                    )}
+                </div>
+            );
+        }
+        
+        // Render App
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
