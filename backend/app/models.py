@@ -47,6 +47,12 @@ class PracticeExercise(BaseModel):
     solution_hint: Optional[str] = None
 
 
+class TermExplanation(BaseModel):
+    """Объяснение термина (wiki-style)"""
+    term: str
+    explanation: str
+
+
 class Lesson(BaseModel):
     """Урок"""
     title: str
@@ -56,6 +62,7 @@ class Lesson(BaseModel):
     practice_exercises: List[PracticeExercise] = Field(default_factory=list, description="Детальные практические упражнения")
     videos: List[VideoMaterial] = Field(default_factory=list, description="Рекомендуемые видео")
     additional_materials: List[AdditionalMaterial] = Field(default_factory=list, description="Дополнительные материалы")
+    terms: List[TermExplanation] = Field(default_factory=list, description="Объяснение сложных терминов в уроке")
 
 
 class Module(BaseModel):

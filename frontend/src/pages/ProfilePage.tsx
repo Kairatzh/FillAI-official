@@ -2,8 +2,9 @@
 
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { User, Mail, Calendar, BookOpen, Trophy, Settings, Edit2, Save, Bell, Shield, Moon, Globe, X } from 'lucide-react';
-import { getCourses } from '@/data/mockStore';
+import { Mail, Calendar, BookOpen, Trophy, Settings, Edit2, Save, Bell, Shield, Moon, Globe, X, Star, Users as UsersIcon } from 'lucide-react';
+import { getCourses, Course } from '@/data/mockStore';
+import CoursePreview from '@/components/CoursePreview';
 
 export default function ProfilePage() {
   const [isEditing, setIsEditing] = useState(false);
@@ -23,14 +24,21 @@ export default function ProfilePage() {
   });
 
   const courses = getCourses();
-  const completedCourses = courses.filter(() => Math.random() > 0.7).length;
+  const createdByMe = courses.filter((c) => (c.createdBy || 'Вы') === 'Вы');
+  const publicCourses = courses.filter((c) => c.isPublic !== false);
+
+  // Простая модель прогресса: часть курсов считаем завершёнными, часть — в процессе
+  const completedCourses = Math.floor(courses.length / 2);
   const inProgressCourses = courses.length - completedCourses;
 
   const stats = [
-    { label: 'Курсы пройдено', value: completedCourses, icon: Trophy, color: 'text-gray-300', bg: 'bg-[#2d2d2d]' },
-    { label: 'Курсы в процессе', value: inProgressCourses, icon: BookOpen, color: 'text-gray-300', bg: 'bg-[#2d2d2d]' },
-    { label: 'Всего курсов', value: courses.length, icon: Calendar, color: 'text-gray-300', bg: 'bg-[#2d2d2d]' },
+    { label: 'Курсы пройдено', value: completedCourses, icon: Trophy, color: 'text-emerald-300' },
+    { label: 'Курсы в процессе', value: inProgressCourses, icon: BookOpen, color: 'text-sky-300' },
+    { label: 'Курсы создано', value: createdByMe.length, icon: Calendar, color: 'text-amber-300' },
   ];
+
+  const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
+  const [activeTab, setActiveTab] = useState<'learning' | 'created'>('learning');
 
   return (
     <div className="flex-1 overflow-auto bg-[#1a1a1a] text-white p-8">
@@ -43,9 +51,9 @@ export default function ProfilePage() {
           transition={{ duration: 0.5 }}
         >
           <h1 className="text-4xl font-bold mb-2 bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent">
-            Профиль
+            Личный кабинет
           </h1>
-          <p className="text-gray-400">Управляйте своим профилем и отслеживайте прогресс</p>
+          <p className="text-gray-400">Ваша обучающая страница: прогресс, созданные курсы и настройки аккаунта</p>
         </motion.div>
 
         {/* Profile Card */}
@@ -117,14 +125,20 @@ export default function ProfilePage() {
                 </div>
               ) : (
                 <>
-                  <div className="flex items-center justify-between mb-4">
-                    <h2 className="text-3xl font-bold">{userData.name}</h2>
+                  <div className="flex items-center justify-between mb-4 gap-4">
+                    <div>
+                      <h2 className="text-3xl font-bold">{userData.name}</h2>
+                      <div className="mt-1 flex items-center gap-2 text-xs text-gray-400">
+                        <UsersIcon size={14} />
+                        <span>Создатель {createdByMe.length} курсов • Участник с {userData.joinDate}</span>
+                      </div>
+                    </div>
                     <button
                       onClick={() => setIsEditing(true)}
-                      className="px-4 py-2 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg transition-colors flex items-center gap-2"
+                      className="px-4 py-2 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg transition-colors flex items-center gap-2 text-sm"
                     >
-                      <Edit2 size={18} />
-                      Редактировать
+                      <Edit2 size={16} />
+                      Редактировать профиль
                     </button>
                   </div>
                   <div className="flex items-center gap-2 text-gray-400 mb-4">
@@ -154,7 +168,8 @@ export default function ProfilePage() {
               whileHover={{ scale: 1.05, y: -5, borderColor: '#4a4a4a' }}
             >
               <div className="flex items-center justify-between mb-4">
-                <stat.icon className={`${stat.color}`} size={32} />
+                <stat.icon className={stat.color} size={28} />
+                <Star className="text-yellow-400/70" size={18} />
               </div>
               <div className="text-3xl font-bold mb-1">{stat.value}</div>
               <div className="text-gray-400">{stat.label}</div>
@@ -162,7 +177,7 @@ export default function ProfilePage() {
           ))}
         </div>
 
-        {/* Recent Courses */}
+        {/* Learning & Created courses */}
         <motion.div 
           className="bg-[#252525] border border-[#3a3a3a] rounded-xl p-8"
           initial={{ opacity: 0, y: 20 }}
@@ -170,31 +185,71 @@ export default function ProfilePage() {
           transition={{ delay: 0.4 }}
         >
           <div className="flex items-center justify-between mb-6">
-            <h3 className="text-2xl font-semibold">Недавние курсы</h3>
-            <button className="text-gray-400 hover:text-white transition-colors">
-              Посмотреть все
+            <div className="flex gap-3 rounded-lg bg-[#1f1f1f] p-1">
+              <button
+                onClick={() => setActiveTab('learning')}
+                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                  activeTab === 'learning'
+                    ? 'bg-[#2d2d2d] text-white'
+                    : 'text-gray-300 hover:text-white'
+                }`}
+              >
+                Я прохожу
+              </button>
+              <button
+                onClick={() => setActiveTab('created')}
+                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                  activeTab === 'created'
+                    ? 'bg-[#2d2d2d] text-white'
+                    : 'text-gray-300 hover:text-white'
+                }`}
+              >
+                Я создал
+              </button>
+            </div>
+            <button className="text-gray-400 hover:text-white transition-colors text-sm">
+              Открыть в коммьюнити
             </button>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {courses.slice(0, 4).map((course, index) => (
-              <motion.div
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-80 overflow-y-auto pr-1">
+            {(activeTab === 'learning' ? publicCourses : createdByMe).map((course) => (
+              <motion.button
                 key={course.id}
+                type="button"
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.5 + index * 0.1 }}
-                className="bg-[#2d2d2d] border border-[#3a3a3a] rounded-lg p-4 hover:border-[#4a4a4a] transition-all cursor-pointer"
-                whileHover={{ scale: 1.03, x: 5 }}
+                transition={{ duration: 0.3 }}
+                className="text-left bg-[#2d2d2d] border border-[#3a3a3a] rounded-lg p-4 hover:border-[#4a4a4a] hover:bg-[#333333] transition-all cursor-pointer"
+                whileHover={{ scale: 1.02, x: 4 }}
+                onClick={() => setSelectedCourse(course)}
               >
                 <div className="flex items-start justify-between mb-2">
                   <BookOpen className="text-gray-400" size={20} />
-                  <span className="text-xs px-2 py-1 bg-gray-700 rounded text-gray-300">
-                    {course.category}
+                  <span className="text-xs px-2 py-1 bg-gray-700 rounded text-gray-300 capitalize">
+                    {activeTab === 'created' ? 'мой курс' : course.level}
                   </span>
                 </div>
-                <h4 className="font-semibold mb-1">{course.title}</h4>
-                <div className="text-sm text-gray-400">{course.level} • {course.duration}</div>
-              </motion.div>
+                <h4 className="font-semibold mb-1 line-clamp-2">{course.title}</h4>
+                <div className="text-xs text-gray-400 mb-1">{course.duration}</div>
+                {course.tags && course.tags.length > 0 && (
+                  <div className="flex flex-wrap gap-1 mt-1">
+                    {course.tags.slice(0, 3).map((tag) => (
+                      <span
+                        key={tag}
+                        className="text-[10px] px-2 py-0.5 rounded-full bg-[#1f1f1f] border border-[#3a3a3a] text-gray-300"
+                      >
+                        #{tag}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </motion.button>
             ))}
+            {(activeTab === 'created' && createdByMe.length === 0) && (
+              <p className="text-sm text-gray-400 col-span-full">
+                Вы ещё не создали ни одного курса. Попробуйте опубликовать курс в разделе «Коммьюнити».
+              </p>
+            )}
           </div>
         </motion.div>
 
@@ -347,7 +402,12 @@ export default function ProfilePage() {
           )}
         </AnimatePresence>
       </div>
+
+      {selectedCourse && (
+        <CoursePreview course={selectedCourse} onClose={() => setSelectedCourse(null)} />
+      )}
     </div>
   );
 }
+
 

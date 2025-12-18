@@ -2,7 +2,7 @@
 
 import { motion } from 'framer-motion';
 import { useState, useEffect } from 'react';
-import { User, BookOpen } from 'lucide-react';
+import { User, BookOpen, Folder } from 'lucide-react';
 import { Node as NodeType } from '@/types/graph';
 import { useGraphStore } from '@/store/graphStore';
 import { useUIStore } from '@/store/uiStore';
@@ -42,13 +42,17 @@ export default function NodeComponent({ node, graphCenterX, graphCenterY }: Node
     cursorPosition.y - (graphCenterY || 0)
   );
 
-  // Idle oscillation (only when not dragging)
-  const oscillation = isDraggingThis
-    ? { x: 0, y: 0 }
-    : idleOscillation(time, 0, 0, node.type === 'center' ? 2 : 1.5);
+  // Статичное дерево: лёгкое "дыхание" только у центрального узла,
+  // без раскачивания позиционирования для остальных.
+  const oscillation =
+    node.type === 'center' && !isDraggingThis
+      ? idleOscillation(time, 0, 0, 2)
+      : { x: 0, y: 0 };
 
-  // Breathing scale
-  const breatheScale = breathingValue(time * 0.5, node.type === 'center' ? 0.05 : 0.03, 1);
+  const breatheScale =
+    node.type === 'center'
+      ? breathingValue(time * 0.5, 0.06, 1)
+      : 1;
 
   // Periodic pulse glow
   const pulseGlow = Math.sin(pulseTime * 0.7) * 0.5 + 0.5;
@@ -114,10 +118,14 @@ export default function NodeComponent({ node, graphCenterX, graphCenterY }: Node
         stroke={node.glowColor || node.color || '#2d2d2d'}
         strokeWidth={1.5}
         opacity={glowIntensity * 0.2}
-        animate={{
-          r: node.radius * (1.5 + breatheScale * 0.15),
-          opacity: glowIntensity * 0.3,
-        }}
+        animate={
+          node.type === 'center'
+            ? {
+                r: node.radius * (1.5 + breatheScale * 0.15),
+                opacity: glowIntensity * 0.35,
+              }
+            : { opacity: glowIntensity * 0.25 }
+        }
         transition={{
           duration: 3,
           repeat: Infinity,
@@ -136,7 +144,7 @@ export default function NodeComponent({ node, graphCenterX, graphCenterY }: Node
         opacity={0.95}
         animate={{
           scale: breatheScale,
-          opacity: isHovered ? 1 : 0.95,
+          opacity: isHovered || isSelected ? 1 : 0.92,
         }}
         transition={{
           scale: { duration: 4, repeat: Infinity, ease: 'easeInOut' },
@@ -156,14 +164,22 @@ export default function NodeComponent({ node, graphCenterX, graphCenterY }: Node
         </foreignObject>
       )}
 
-      {/* Узор для категорий - простой круг с точками */}
+      {/* Иконка/узор для категорий (групп) */}
       {node.type === 'primary' && (
-        <g>
-          <circle cx={0} cy={0} r={node.radius * 0.6} fill="none" stroke="rgba(255, 255, 255, 0.15)" strokeWidth={1} />
-          <circle cx={-node.radius * 0.3} cy={-node.radius * 0.3} r={2} fill="rgba(255, 255, 255, 0.3)" />
-          <circle cx={node.radius * 0.3} cy={-node.radius * 0.3} r={2} fill="rgba(255, 255, 255, 0.3)" />
-          <circle cx={0} cy={node.radius * 0.3} r={2} fill="rgba(255, 255, 255, 0.3)" />
-        </g>
+        <foreignObject
+          x={-node.radius * 0.4}
+          y={-node.radius * 0.4}
+          width={node.radius * 0.8}
+          height={node.radius * 0.8}
+        >
+          <div className="w-full h-full flex items-center justify-center">
+            <Folder
+              size={node.radius * 0.5}
+              className="text-white/80"
+              strokeWidth={2}
+            />
+          </div>
+        </foreignObject>
       )}
 
       {/* Иконка книги для курсов */}
@@ -219,7 +235,7 @@ export default function NodeComponent({ node, graphCenterX, graphCenterY }: Node
           e.preventDefault();
           handleClick(e);
         }}
-        drag={!isDraggingThis}
+        drag={!isDraggingThis && node.type !== 'center'}
         dragMomentum={false}
         dragElastic={0.1}
         onDragStart={(e) => {

@@ -41,15 +41,11 @@ export const useGraphStore = create<GraphStore>((set, get) => ({
 
   stopDrag: () => set({ isDragging: false, dragNodeId: null }),
 
-  updatePhysics: (engine, cursorX, cursorY) => {
-    const state = get();
-    engine.update();
-    
-    if (cursorX !== undefined && cursorY !== undefined) {
-      engine.applyCursorRepulsion(cursorX, cursorY);
-    }
-
-    set({ nodes: [...state.nodes] });
+  // Статичный иерархический граф: отключаем физический движок,
+  // позиции берутся из заранее рассчитанных координат в graphData.ts
+  updatePhysics: () => {
+    // Можно оставить на будущее, если понадобится анимация
+    return;
   },
 
   resetGraph: () => set({ nodes: initialNodes, links: initialLinks }),

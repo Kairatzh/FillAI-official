@@ -2,7 +2,7 @@
 
 import { motion } from 'framer-motion';
 import { useState, useEffect } from 'react';
-import { User, BookOpen } from 'lucide-react';
+import { User, BookOpen, Folder } from 'lucide-react';
 import { Node as NodeType } from '@/types/graph';
 import { useGraphStore } from '@/store/graphStore';
 import { useUIStore } from '@/store/uiStore';
@@ -156,14 +156,22 @@ export default function NodeComponent({ node, graphCenterX, graphCenterY }: Node
         </foreignObject>
       )}
 
-      {/* Узор для категорий - простой круг с точками */}
+      {/* Иконка/узор для категорий (групп) */}
       {node.type === 'primary' && (
-        <g>
-          <circle cx={0} cy={0} r={node.radius * 0.6} fill="none" stroke="rgba(255, 255, 255, 0.15)" strokeWidth={1} />
-          <circle cx={-node.radius * 0.3} cy={-node.radius * 0.3} r={2} fill="rgba(255, 255, 255, 0.3)" />
-          <circle cx={node.radius * 0.3} cy={-node.radius * 0.3} r={2} fill="rgba(255, 255, 255, 0.3)" />
-          <circle cx={0} cy={node.radius * 0.3} r={2} fill="rgba(255, 255, 255, 0.3)" />
-        </g>
+        <foreignObject
+          x={-node.radius * 0.4}
+          y={-node.radius * 0.4}
+          width={node.radius * 0.8}
+          height={node.radius * 0.8}
+        >
+          <div className="w-full h-full flex items-center justify-center">
+            <Folder
+              size={node.radius * 0.5}
+              className="text-white/80"
+              strokeWidth={2}
+            />
+          </div>
+        </foreignObject>
       )}
 
       {/* Иконка книги для курсов */}

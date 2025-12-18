@@ -15,7 +15,6 @@ export default function GraphCanvas() {
   const { nodes, links, updatePhysics, isDragging, centerGraph } = useGraphStore();
   const { setCursorPosition } = useUIStore();
   const [graphCenter, setGraphCenter] = useState({ x: 0, y: 0 });
-  const [rotation, setRotation] = useState(0);
   const engineRef = useRef<PhysicsEngine | null>(null);
   const animationFrameRef = useRef<number>();
 
@@ -57,7 +56,7 @@ export default function GraphCanvas() {
     }
   }, [nodes, links]);
 
-  // Physics animation loop
+  // Physics animation loop (без вращения графа)
   useEffect(() => {
     const animate = () => {
       if (engineRef.current && !isDragging) {
@@ -65,12 +64,9 @@ export default function GraphCanvas() {
         // Convert cursor position to graph coordinate system (относительно центра графа)
         const cursorX = cursorPosition.x - graphCenter.x;
         const cursorY = cursorPosition.y - graphCenter.y;
+
+        // Плавная, но стабильная физика без \"кручения\" графа
         updatePhysics(engineRef.current, cursorX, cursorY);
-      }
-      
-      // Минимальная ротация - почти статично
-      if (!isDragging) {
-        setRotation((r) => r + 0.0001);
       }
 
       animationFrameRef.current = requestAnimationFrame(animate);
@@ -137,9 +133,7 @@ export default function GraphCanvas() {
         }}
         onMouseMove={handleMouseMove}
       >
-        <g
-          transform={`translate(${graphCenter.x}, ${graphCenter.y}) rotate(${rotation * (180 / Math.PI)})`}
-        >
+        <g transform={`translate(${graphCenter.x}, ${graphCenter.y})`}>
           {/* Links */}
           <g>
             {links.map((link) => {

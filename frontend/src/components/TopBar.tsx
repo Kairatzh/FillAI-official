@@ -36,11 +36,11 @@ export default function TopBar() {
           <motion.div 
             className="flex items-center gap-4"
             animate={{
-              x: sidebarOpen ? 280 : 0,
+              x: sidebarOpen ? 340 : 0,
             }}
             transition={{ duration: 0.3, ease: 'easeInOut' }}
           >
-            <h1 className="text-xl font-bold text-white">Fill AI</h1>
+            <h1 className="text-2xl font-extrabold text-white tracking-tight">Fill AI</h1>
           </motion.div>
 
           <div className="flex items-center gap-2">
