@@ -5,6 +5,7 @@ import GraphCanvas from '@/components/GraphCanvas';
 import FloatingPanel from '@/components/FloatingPanel';
 import SearchBar from '@/components/SearchBar';
 import BackgroundEnvironment from '@/components/BackgroundEnvironment';
+import JasperAssistant from '@/components/JasperAssistant';
 import CommunityPage from '@/pages/CommunityPage';
 import LibraryPage from '@/pages/LibraryPage';
 import ProfilePage from '@/pages/ProfilePage';
@@ -48,6 +49,8 @@ export default function Home() {
         ) : null}
       </div>
       </div>
+      {/* Глобальный ИИ-помощник Джаспер */}
+      <JasperAssistant />
     </main>
   );
 }

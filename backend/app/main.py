@@ -4,9 +4,16 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.models import (
     CourseGenerationRequest,
     CourseGenerationResponse,
-    CourseSettings
+    CourseSettings,
+    ExerciseCheckRequest,
+    ExerciseCheckResponse,
+    ExerciseCheckResult,
+    AssistantChatRequest,
+    AssistantChatResponse,
 )
 from app.agents.course_coordinator import CourseCoordinator
+from app.agents.grading_agent import ExerciseGradingAgent
+from app.agents.assistant_agent import PersonalAssistantAgent
 import os
 from dotenv import load_dotenv
 
@@ -28,8 +35,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Инициализируем координатор курсов
+# Инициализируем координатор курсов и дополнительные агенты
 coordinator = CourseCoordinator()
+grading_agent = ExerciseGradingAgent()
+assistant_agent = PersonalAssistantAgent()
 
 
 @app.get("/")
@@ -125,6 +134,48 @@ async def generate_courses_batch(requests: list[CourseGenerationRequest]):
             status_code=500,
             detail=f"Ошибка при пакетной генерации: {str(e)}"
         )
+
+
+@app.post("/api/ai/grade-exercise", response_model=ExerciseCheckResponse)
+async def grade_exercise(request: ExerciseCheckRequest):
+    """
+    Простой ИИ-проверяющий для практических заданий.
+
+    Используется фронтендом, чтобы оценивать текстовые ответы студентов
+    и возвращать понятный фидбек, оценку и рекомендации по улучшению.
+    """
+    try:
+        result_data = await grading_agent.grade_exercise(request.model_dump())
+        result = ExerciseCheckResult(**result_data)
+        return ExerciseCheckResponse(success=True, result=result)
+    except Exception as e:
+        return ExerciseCheckResponse(success=False, error=str(e))
+
+
+@app.post("/api/ai/assistant/chat", response_model=AssistantChatResponse)
+async def assistant_chat(request: AssistantChatRequest):
+    """
+    Личный ИИ-ассистент / болталка с доступом к базовому контексту пользователя.
+
+    Фронтенд может передать:
+    - user_context (имя, цели, текущие курсы)
+    - history (предыдущие сообщения диалога)
+    """
+    try:
+        history = [
+            {"role": msg.role, "content": msg.content}
+            for msg in (request.history or [])
+        ]
+        user_context = request.user_context.model_dump() if request.user_context else None
+
+        reply = await assistant_agent.chat(
+            message=request.message,
+            user_context=user_context,
+            history=history,
+        )
+        return AssistantChatResponse(success=True, reply=reply)
+    except Exception as e:
+        return AssistantChatResponse(success=False, error=str(e))
 
 
 if __name__ == "__main__":

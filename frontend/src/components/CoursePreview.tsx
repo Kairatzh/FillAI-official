@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { X, BookOpen, Clock, Target, BarChart, Play, ExternalLink, FileText, Youtube, Share2, Eye, CheckCircle2, AlertCircle, ChevronRight, ChevronLeft } from 'lucide-react';
 import { Course, PracticeExercise, VideoMaterial, AdditionalMaterial, shareCourseToCommunity, getSharedCourses, TermExplanation } from '@/data/mockStore';
+import { gradeExercise } from '@/services/api';
 
 interface CoursePreviewProps {
   course: Course | null;
@@ -22,6 +23,8 @@ export default function CoursePreview({ course, onClose }: CoursePreviewProps) {
   // Состояние для геймификации практики
   const [exerciseAnswers, setExerciseAnswer] = useState<Record<string, string>>({});
   const [exerciseResults, setExerciseResult] = useState<Record<string, 'idle' | 'success' | 'error'>>({});
+  const [exerciseLoading, setExerciseLoading] = useState<Record<string, boolean>>({});
+  const [exerciseFeedback, setExerciseFeedback] = useState<Record<string, string>>({});
 
   // Состояние для Wiki-style объяснений терминов
   const [activeTerm, setActiveTerm] = useState<TermExplanation | null>(null);
@@ -43,26 +46,38 @@ export default function CoursePreview({ course, onClose }: CoursePreviewProps) {
     }
   };
 
-  const handleCheckExercise = (exerciseIdx: number) => {
+  const handleCheckExercise = async (exerciseIdx: number) => {
     const key = `${activeModuleIdx}-${activeLessonIdx}-${exerciseIdx}`;
-    const answer = (exerciseAnswers[key] || '').toLowerCase().trim();
+    const answer = (exerciseAnswers[key] || '').trim();
     
     if (!answer) {
       setExerciseResult({ ...exerciseResults, [key]: 'error' });
       return;
     }
 
-    // Имитация ИИ-проверки: ищем ключевые слова из названия задания или контекста
     const exercise = currentLesson?.practice_exercises?.[exerciseIdx];
-    if (!exercise) return;
+    if (!exercise || !currentLesson) return;
 
-    const keywords = exercise.title.toLowerCase().split(' ').concat(['решение', 'понятно', 'сделал']);
-    const hasKeywords = keywords.some(k => k.length > 3 && answer.includes(k));
+    try {
+      setExerciseLoading(prev => ({ ...prev, [key]: true }));
+      setExerciseFeedback(prev => ({ ...prev, [key]: '' }));
 
-    if (hasKeywords || answer.length > 10) {
-      setExerciseResult({ ...exerciseResults, [key]: 'success' });
-    } else {
-      setExerciseResult({ ...exerciseResults, [key]: 'error' });
+      const result = await gradeExercise({
+        course_title: course.title,
+        lesson_title: currentLesson.title,
+        exercise_title: exercise.title,
+        exercise_description: exercise.description,
+        user_answer: answer,
+        language: 'ru',
+      });
+
+      setExerciseResult(prev => ({ ...prev, [key]: result.score >= 60 ? 'success' : 'error' }));
+      setExerciseFeedback(prev => ({ ...prev, [key]: result.ai_feedback }));
+    } catch (e) {
+      console.error('Ошибка при проверке задания', e);
+      setExerciseResult(prev => ({ ...prev, [key]: 'error' }));
+    } finally {
+      setExerciseLoading(prev => ({ ...prev, [key]: false }));
     }
   };
 
@@ -273,6 +288,7 @@ export default function CoursePreview({ course, onClose }: CoursePreviewProps) {
                       {currentLesson.practice_exercises.map((exercise, exIndex) => {
                         const key = `${activeModuleIdx}-${activeLessonIdx}-${exIndex}`;
                         const status = exerciseResults[key] || 'idle';
+                        const isLoading = exerciseLoading[key];
                         
                         return (
                           <div
@@ -318,17 +334,27 @@ export default function CoursePreview({ course, onClose }: CoursePreviewProps) {
                                 <div className="flex-1" />
                                 <button
                                   onClick={() => handleCheckExercise(exIndex)}
+                                  disabled={isLoading}
                                   className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all ${
                                     status === 'success' ? 'bg-green-600 text-white' :
                                     status === 'error' ? 'bg-red-600 text-white' :
                                     'bg-sky-600 hover:bg-sky-500 text-white shadow-lg shadow-sky-900/20'
-                                  }`}
+                                  } ${isLoading ? 'opacity-60 cursor-wait' : ''}`}
                                 >
-                                  {status === 'success' ? <><CheckCircle2 size={16} /> Проверено ИИ</> :
-                                   status === 'error' ? <><AlertCircle size={16} /> Ошибка</> :
-                                   'Проверить с ИИ'}
+                                  {isLoading
+                                    ? 'ИИ проверяет...'
+                                    : status === 'success'
+                                      ? (<><CheckCircle2 size={16} /> Проверено ИИ</>)
+                                      : status === 'error'
+                                        ? (<><AlertCircle size={16} /> Нужна доработка</>)
+                                        : 'Проверить с ИИ'}
                                 </button>
                               </div>
+                              {exerciseFeedback[key] && (
+                                <div className="mt-3 text-xs text-gray-300 bg-[#1a1a1a] border border-[#3a3a3a] rounded-lg p-3">
+                                  {exerciseFeedback[key]}
+                                </div>
+                              )}
                             </div>
                           </div>
                         );

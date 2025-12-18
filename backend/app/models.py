@@ -96,3 +96,58 @@ class CourseGenerationResponse(BaseModel):
     course: Optional[Course] = None
     error: Optional[str] = None
     message: Optional[str] = None
+
+
+class ExerciseCheckRequest(BaseModel):
+    """Запрос на проверку практического задания ИИ"""
+    course_title: str
+    lesson_title: str
+    exercise_title: str
+    exercise_description: Optional[str] = None
+    user_answer: str
+    language: Optional[str] = Field("ru", description="Язык ответа пользователя")
+
+
+class ExerciseCheckResult(BaseModel):
+    """Результат проверки практического задания"""
+    score: int = Field(..., ge=0, le=100, description="Оценка в процентах")
+    verdict: str = Field(..., description="Краткий вывод (зачтено / нужно доработать)")
+    strengths: List[str] = Field(default_factory=list, description="Что сделано хорошо")
+    improvements: List[str] = Field(default_factory=list, description="Что можно улучшить")
+    ai_feedback: str = Field(..., description="Развёрнутый комментарий ИИ на человеческом языке")
+
+
+class ExerciseCheckResponse(BaseModel):
+    """Ответ сервиса проверки заданий"""
+    success: bool
+    result: Optional[ExerciseCheckResult] = None
+    error: Optional[str] = None
+
+
+class ChatMessage(BaseModel):
+    """Сообщение в чате с ИИ-ассистентом"""
+    role: str = Field(..., description="system | user | assistant")
+    content: str
+
+
+class UserContext(BaseModel):
+    """Краткие данные о пользователе, которые можно передать ассистенту"""
+    name: Optional[str] = None
+    goals: Optional[List[str]] = None
+    current_courses: Optional[List[str]] = None
+    preferred_topics: Optional[List[str]] = None
+
+
+class AssistantChatRequest(BaseModel):
+    """Запрос к личному ИИ-ассистенту"""
+    message: str
+    user_context: Optional[UserContext] = None
+    history: Optional[List[ChatMessage]] = None
+    language: Optional[str] = Field("ru", description="Желаемый язык ответа")
+
+
+class AssistantChatResponse(BaseModel):
+    """Ответ ассистента в чате"""
+    success: bool
+    reply: Optional[str] = None
+    error: Optional[str] = None

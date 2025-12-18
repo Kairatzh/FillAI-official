@@ -77,6 +77,56 @@ export interface CourseGenerationResponse {
   message?: string;
 }
 
+// ----- AI helpers -----
+
+export interface ExerciseCheckRequest {
+  course_title: string;
+  lesson_title: string;
+  exercise_title: string;
+  exercise_description?: string;
+  user_answer: string;
+  language?: string;
+}
+
+export interface ExerciseCheckResult {
+  score: number;
+  verdict: string;
+  strengths: string[];
+  improvements: string[];
+  ai_feedback: string;
+}
+
+export interface ExerciseCheckResponse {
+  success: boolean;
+  result?: ExerciseCheckResult;
+  error?: string;
+}
+
+export interface AssistantUserContext {
+  name?: string;
+  goals?: string[];
+  current_courses?: string[];
+  preferred_topics?: string[];
+}
+
+export interface AssistantChatMessage {
+  role: 'system' | 'user' | 'assistant';
+  content: string;
+}
+
+export interface AssistantChatRequest {
+  message: string;
+  user_context?: AssistantUserContext;
+  history?: AssistantChatMessage[];
+  language?: string;
+}
+
+export interface AssistantChatResponse {
+  success: boolean;
+  reply?: string;
+  error?: string;
+}
+
 /**
  * Преобразует настройки фронтенда в формат бэкенда
  */
@@ -216,6 +266,43 @@ export async function generateCourse(
     console.error('Error generating course:', error);
     throw error;
   }
+}
+
+export async function gradeExercise(
+  payload: ExerciseCheckRequest
+): Promise<ExerciseCheckResult> {
+  const response = await fetch(`${API_BASE_URL}/api/ai/grade-exercise`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Ошибка проверки задания: ${response.status}`);
+  }
+
+  const data: ExerciseCheckResponse = await response.json();
+  if (!data.success || !data.result) {
+    throw new Error(data.error || 'Не удалось проверить задание');
+  }
+  return data.result;
+}
+
+export async function assistantChat(
+  payload: AssistantChatRequest
+): Promise<AssistantChatResponse> {
+  const response = await fetch(`${API_BASE_URL}/api/ai/assistant/chat`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Ошибка чата с ассистентом: ${response.status}`);
+  }
+
+  const data: AssistantChatResponse = await response.json();
+  return data;
 }
 
 /**
