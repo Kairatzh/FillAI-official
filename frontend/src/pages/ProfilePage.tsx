@@ -1,20 +1,32 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Mail, Calendar, BookOpen, Trophy, Settings, Edit2, Save, Bell, Shield, Moon, Globe, X, Star, Users as UsersIcon } from 'lucide-react';
-import { getCourses, Course } from '@/data/mockStore';
+import { 
+  Mail, Calendar, BookOpen, Trophy, Settings, Edit2, Save, Bell, 
+  Shield, Moon, Globe, X, Star, Users as UsersIcon, Send, 
+  Search, MessageSquare, Award, Zap, Heart, Target, TrendingUp,
+  ChevronRight, Bookmark, Clock
+} from 'lucide-react';
+import { getCourses, Course, getUsers, UserProfile } from '@/data/mockStore';
 import CoursePreview from '@/components/CoursePreview';
 
 export default function ProfilePage() {
   const [isEditing, setIsEditing] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<'learning' | 'created' | 'achievements' | 'messages'>('learning');
+
   const [userData, setUserData] = useState({
     name: 'Иван Иванов',
     email: 'ivan@example.com',
     bio: 'Увлеченный изучатель. Люблю изучать новые технологии и языки.',
     joinDate: 'Январь 2024',
+    level: 15,
+    xp: 2450,
+    nextLevelXp: 3000,
+    rank: 'Золотой исследователь',
   });
+
   const [settings, setSettings] = useState({
     notifications: true,
     emailNotifications: true,
@@ -23,22 +35,47 @@ export default function ProfilePage() {
     privacy: 'public',
   });
 
+  // Чат с друзьями
+  const [selectedFriend, setSelectedFriend] = useState<UserProfile | null>(null);
+  const [messageText, setMessageText] = useState('');
+  const [chats, setChats] = useState<Record<string, {text: string, sender: 'me' | 'them', time: string}[]>>({
+    '1': [
+      { text: 'Привет! Как успехи в изучении Python?', sender: 'them', time: '10:30' },
+      { text: 'Привет! Идет отлично, разобрался с декораторами.', sender: 'me', time: '10:35' },
+    ],
+  });
+
+  const users = getUsers().filter(u => u.id !== 'me');
   const courses = getCourses();
   const createdByMe = courses.filter((c) => (c.createdBy || 'Вы') === 'Вы');
   const publicCourses = courses.filter((c) => c.isPublic !== false);
 
-  // Простая модель прогресса: часть курсов считаем завершёнными, часть — в процессе
-  const completedCourses = Math.floor(courses.length / 2);
-  const inProgressCourses = courses.length - completedCourses;
-
   const stats = [
-    { label: 'Курсы пройдено', value: completedCourses, icon: Trophy, color: 'text-emerald-300' },
-    { label: 'Курсы в процессе', value: inProgressCourses, icon: BookOpen, color: 'text-sky-300' },
-    { label: 'Курсы создано', value: createdByMe.length, icon: Calendar, color: 'text-amber-300' },
+    { label: 'Курсы пройдено', value: 8, icon: Trophy, color: 'text-yellow-400' },
+    { label: 'Часов обучения', value: 124, icon: Clock, color: 'text-sky-400' },
+    { label: 'Друзей', value: 12, icon: UsersIcon, color: 'text-purple-400' },
+    { label: 'Очков опыта', value: userData.xp, icon: Zap, color: 'text-orange-400' },
   ];
 
+  const achievements = [
+    { id: 1, title: 'Первый шаг', desc: 'Завершите свой первый урок', icon: Target, color: 'bg-emerald-500', unlocked: true },
+    { id: 2, title: 'Гуру Python', desc: 'Пройдите все курсы по Python', icon: Award, color: 'bg-blue-500', unlocked: true },
+    { id: 3, title: 'Автор года', desc: 'Создайте 5 популярных курсов', icon: Trophy, color: 'bg-amber-500', unlocked: false },
+    { id: 4, title: 'Помощник', desc: 'Ответьте на 10 вопросов в коммьюнити', icon: Heart, color: 'bg-rose-500', unlocked: true },
+  ];
+
+  const handleSendMessage = () => {
+    if (!messageText.trim() || !selectedFriend) return;
+    const friendId = selectedFriend.id;
+    const newMessage = { text: messageText, sender: 'me' as const, time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) };
+    setChats({
+      ...chats,
+      [friendId]: [...(chats[friendId] || []), newMessage]
+    });
+    setMessageText('');
+  };
+
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
-  const [activeTab, setActiveTab] = useState<'learning' | 'created'>('learning');
 
   return (
     <div className="flex-1 overflow-auto bg-[#1a1a1a] text-white p-8">
@@ -56,201 +93,289 @@ export default function ProfilePage() {
           <p className="text-gray-400">Ваша обучающая страница: прогресс, созданные курсы и настройки аккаунта</p>
         </motion.div>
 
-        {/* Profile Card */}
-        <motion.div
-          initial={{ opacity: 0, y: 30, scale: 0.95 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          transition={{ duration: 0.5 }}
-          className="bg-[#252525] border border-[#3a3a3a] rounded-xl p-8 mb-8"
-        >
-          <div className="flex items-start gap-8">
-            {/* Avatar */}
-            <div className="relative">
-              <div className="w-32 h-32 rounded-full bg-gray-700 flex items-center justify-center text-4xl font-bold text-gray-300">
-                {userData.name.split(' ').map(n => n[0]).join('')}
-              </div>
-              {isEditing && (
-                <button className="absolute bottom-0 right-0 w-10 h-10 rounded-full bg-gray-800 border border-gray-700 flex items-center justify-center hover:bg-gray-700 transition-colors">
-                  <Edit2 size={18} />
-                </button>
-              )}
-            </div>
-
-            {/* Info */}
-            <div className="flex-1">
-              {isEditing ? (
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm text-gray-400 mb-2">Имя</label>
-                    <input
-                      type="text"
-                      value={userData.name}
-                      onChange={(e) => setUserData({ ...userData, name: e.target.value })}
-                      className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-gray-600"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm text-gray-400 mb-2">Email</label>
-                    <input
-                      type="email"
-                      value={userData.email}
-                      onChange={(e) => setUserData({ ...userData, email: e.target.value })}
-                      className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-gray-600"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm text-gray-400 mb-2">О себе</label>
-                    <textarea
-                      value={userData.bio}
-                      onChange={(e) => setUserData({ ...userData, bio: e.target.value })}
-                      rows={3}
-                      className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-gray-600"
-                    />
-                  </div>
-                  <div className="flex gap-3">
-                    <button
-                      onClick={() => setIsEditing(false)}
-                      className="px-6 py-2 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg transition-colors"
-                    >
-                      Отмена
-                    </button>
-                    <button
-                      onClick={() => setIsEditing(false)}
-                      className="px-6 py-2 bg-gray-700 hover:bg-gray-600 border border-gray-600 rounded-lg transition-colors flex items-center gap-2"
-                    >
-                      <Save size={18} />
-                      Сохранить
-                    </button>
+        {/* Profile Card & XP Bar */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="lg:col-span-2 bg-[#252525] border border-[#3a3a3a] rounded-3xl p-8 relative overflow-hidden shadow-2xl"
+          >
+            <div className="flex flex-col md:flex-row items-center md:items-start gap-8 relative z-10">
+              {/* Avatar with Ring */}
+              <div className="relative">
+                <div className="w-40 h-40 rounded-3xl bg-gradient-to-br from-sky-500 to-indigo-600 p-1">
+                  <div className="w-full h-full rounded-[20px] bg-[#1a1a1a] flex items-center justify-center text-5xl font-black text-white">
+                    {userData.name.split(' ').map(n => n[0]).join('')}
                   </div>
                 </div>
-              ) : (
-                <>
-                  <div className="flex items-center justify-between mb-4 gap-4">
-                    <div>
-                      <h2 className="text-3xl font-bold">{userData.name}</h2>
-                      <div className="mt-1 flex items-center gap-2 text-xs text-gray-400">
-                        <UsersIcon size={14} />
-                        <span>Создатель {createdByMe.length} курсов • Участник с {userData.joinDate}</span>
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => setIsEditing(true)}
-                      className="px-4 py-2 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg transition-colors flex items-center gap-2 text-sm"
-                    >
-                      <Edit2 size={16} />
-                      Редактировать профиль
-                    </button>
-                  </div>
-                  <div className="flex items-center gap-2 text-gray-400 mb-4">
-                    <Mail size={18} />
-                    <span>{userData.email}</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-gray-400 mb-4">
-                    <Calendar size={18} />
-                    <span>Участник с {userData.joinDate}</span>
-                  </div>
-                  <p className="text-gray-300">{userData.bio}</p>
-                </>
-              )}
-            </div>
-          </div>
-        </motion.div>
-
-        {/* Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          {stats.map((stat, index) => (
-            <motion.div
-              key={stat.label}
-              initial={{ opacity: 0, y: 30, scale: 0.9 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              transition={{ delay: index * 0.15, duration: 0.4 }}
-              className="bg-[#252525] border border-[#3a3a3a] rounded-xl p-6 cursor-pointer"
-              whileHover={{ scale: 1.05, y: -5, borderColor: '#4a4a4a' }}
-            >
-              <div className="flex items-center justify-between mb-4">
-                <stat.icon className={stat.color} size={28} />
-                <Star className="text-yellow-400/70" size={18} />
+                <div className="absolute -bottom-3 -right-3 w-12 h-12 rounded-2xl bg-[#252525] border-2 border-sky-500 flex items-center justify-center font-bold text-sky-400 shadow-xl">
+                  {userData.level}
+                </div>
               </div>
-              <div className="text-3xl font-bold mb-1">{stat.value}</div>
-              <div className="text-gray-400">{stat.label}</div>
-            </motion.div>
+
+              <div className="flex-1 w-full text-center md:text-left">
+                <div className="flex flex-col md:flex-row items-center justify-between mb-4 gap-4">
+                  <div>
+                    <h2 className="text-4xl font-black mb-2">{userData.name}</h2>
+                    <div className="flex items-center justify-center md:justify-start gap-3">
+                      <span className="px-3 py-1 bg-sky-500/10 text-sky-400 rounded-lg text-xs font-bold uppercase tracking-widest border border-sky-500/20">
+                        {userData.rank}
+                      </span>
+                      <span className="text-gray-500 text-sm font-medium flex items-center gap-1">
+                        <Calendar size={14} />
+                        С {userData.joinDate}
+                      </span>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setIsEditing(!isEditing)}
+                    className="px-6 py-2.5 bg-[#2d2d2d] hover:bg-[#353535] border border-[#3a3a3a] rounded-2xl transition-all flex items-center gap-2 text-sm font-bold text-gray-300"
+                  >
+                    <Edit2 size={16} />
+                    {isEditing ? 'Закрыть' : 'Изменить'}
+                  </button>
+                </div>
+
+                <div className="mt-8">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-bold text-gray-500 uppercase tracking-widest">Прогресс уровня</span>
+                    <span className="text-xs font-bold text-sky-400">{userData.xp} / {userData.nextLevelXp} XP</span>
+                  </div>
+                  <div className="w-full h-3 bg-[#1a1a1a] rounded-full overflow-hidden border border-[#3a3a3a]">
+                    <motion.div 
+                      initial={{ width: 0 }}
+                      animate={{ width: `${(userData.xp / userData.nextLevelXp) * 100}%` }}
+                      transition={{ duration: 1, ease: "easeOut" }}
+                      className="h-full bg-gradient-to-r from-sky-500 to-indigo-500 shadow-[0_0_20px_rgba(14,165,233,0.3)]"
+                    />
+                  </div>
+                </div>
+
+                <p className="mt-6 text-gray-400 text-lg leading-relaxed italic">
+                  "{userData.bio}"
+                </p>
+              </div>
+            </div>
+            {/* Background Decoration */}
+            <Zap className="absolute -right-10 -top-10 text-white/5 w-64 h-64 pointer-events-none" />
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            className="bg-[#252525] border border-[#3a3a3a] rounded-3xl p-8 flex flex-col justify-between shadow-xl"
+          >
+            <h3 className="text-xl font-bold mb-6 flex items-center gap-3">
+              <TrendingUp size={22} className="text-sky-400" />
+              Активность
+            </h3>
+            <div className="space-y-6">
+              {stats.map((stat) => (
+                <div key={stat.label} className="flex items-center justify-between group">
+                  <div className="flex items-center gap-4">
+                    <div className={`p-3 rounded-2xl bg-[#1a1a1a] border border-[#3a3a3a] ${stat.color} group-hover:scale-110 transition-transform`}>
+                      <stat.icon size={20} />
+                    </div>
+                    <div>
+                      <div className="text-sm font-bold text-gray-500 uppercase tracking-widest">{stat.label}</div>
+                      <div className="text-2xl font-black text-white">{stat.value}</div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <button className="w-full mt-6 py-3 bg-sky-600 hover:bg-sky-500 text-white font-bold rounded-2xl shadow-xl shadow-sky-900/20 transition-all">
+              Стать экспертом
+            </button>
+          </motion.div>
+        </div>
+
+        {/* Navigation Tabs */}
+        <div className="flex flex-wrap gap-4 mb-8">
+          {[
+            { id: 'learning', label: 'Мое обучение', icon: BookOpen },
+            { id: 'created', label: 'Созданные курсы', icon: Edit2 },
+            { id: 'achievements', label: 'Достижения', icon: Award },
+            { id: 'messages', label: 'Сообщения', icon: MessageSquare },
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id as any)}
+              className={`px-6 py-4 rounded-2xl flex items-center gap-3 font-bold transition-all ${
+                activeTab === tab.id
+                  ? 'bg-sky-600 text-white shadow-xl shadow-sky-900/40'
+                  : 'bg-[#252525] text-gray-400 hover:text-white border border-[#3a3a3a]'
+              }`}
+            >
+              <tab.icon size={20} />
+              {tab.label}
+            </button>
           ))}
         </div>
 
-        {/* Learning & Created courses */}
-        <motion.div 
-          className="bg-[#252525] border border-[#3a3a3a] rounded-xl p-8"
+        {/* Tab Content Area */}
+        <motion.div
+          key={activeTab}
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4 }}
+          className="min-h-[400px]"
         >
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex gap-3 rounded-lg bg-[#1f1f1f] p-1">
-              <button
-                onClick={() => setActiveTab('learning')}
-                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                  activeTab === 'learning'
-                    ? 'bg-[#2d2d2d] text-white'
-                    : 'text-gray-300 hover:text-white'
-                }`}
-              >
-                Я прохожу
-              </button>
-              <button
-                onClick={() => setActiveTab('created')}
-                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                  activeTab === 'created'
-                    ? 'bg-[#2d2d2d] text-white'
-                    : 'text-gray-300 hover:text-white'
-                }`}
-              >
-                Я создал
-              </button>
-            </div>
-            <button className="text-gray-400 hover:text-white transition-colors text-sm">
-              Открыть в коммьюнити
-            </button>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-80 overflow-y-auto pr-1">
-            {(activeTab === 'learning' ? publicCourses : createdByMe).map((course) => (
-              <motion.button
-                key={course.id}
-                type="button"
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.3 }}
-                className="text-left bg-[#2d2d2d] border border-[#3a3a3a] rounded-lg p-4 hover:border-[#4a4a4a] hover:bg-[#333333] transition-all cursor-pointer"
-                whileHover={{ scale: 1.02, x: 4 }}
-                onClick={() => setSelectedCourse(course)}
-              >
-                <div className="flex items-start justify-between mb-2">
-                  <BookOpen className="text-gray-400" size={20} />
-                  <span className="text-xs px-2 py-1 bg-gray-700 rounded text-gray-300 capitalize">
-                    {activeTab === 'created' ? 'мой курс' : course.level}
-                  </span>
+          {activeTab === 'learning' && (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+              {publicCourses.map((course) => (
+                <div 
+                  key={course.id}
+                  onClick={() => setSelectedCourse(course)}
+                  className="group bg-[#252525] border border-[#3a3a3a] rounded-3xl p-6 hover:border-sky-500/50 transition-all cursor-pointer relative"
+                >
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="w-10 h-10 rounded-xl bg-sky-500/10 flex items-center justify-center text-sky-500">
+                      <Zap size={20} />
+                    </div>
+                    <div className="text-[10px] font-black uppercase tracking-tighter px-2 py-1 bg-[#1a1a1a] rounded-lg text-gray-500">
+                      {course.level}
+                    </div>
+                  </div>
+                  <h4 className="text-xl font-bold mb-4 line-clamp-2 group-hover:text-sky-400 transition-colors">{course.title}</h4>
+                  <div className="flex items-center gap-4 text-xs text-gray-500">
+                    <span className="flex items-center gap-1.5"><Trophy size={14} className="text-yellow-500" /> 80% пройден</span>
+                    <span className="flex items-center gap-1.5"><Bookmark size={14} /> {course.duration}</span>
+                  </div>
+                  <div className="mt-6 h-1.5 w-full bg-[#1a1a1a] rounded-full overflow-hidden">
+                    <div className="h-full w-[80%] bg-sky-500" />
+                  </div>
                 </div>
-                <h4 className="font-semibold mb-1 line-clamp-2">{course.title}</h4>
-                <div className="text-xs text-gray-400 mb-1">{course.duration}</div>
-                {course.tags && course.tags.length > 0 && (
-                  <div className="flex flex-wrap gap-1 mt-1">
-                    {course.tags.slice(0, 3).map((tag) => (
-                      <span
-                        key={tag}
-                        className="text-[10px] px-2 py-0.5 rounded-full bg-[#1f1f1f] border border-[#3a3a3a] text-gray-300"
-                      >
-                        #{tag}
-                      </span>
-                    ))}
+              ))}
+            </div>
+          )}
+
+          {activeTab === 'achievements' && (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              {achievements.map((ach) => (
+                <div 
+                  key={ach.id}
+                  className={`bg-[#252525] border border-[#3a3a3a] rounded-3xl p-8 flex flex-col items-center text-center transition-all ${
+                    !ach.unlocked && 'opacity-40 grayscale'
+                  }`}
+                >
+                  <div className={`w-20 h-20 rounded-3xl ${ach.color} flex items-center justify-center text-white mb-6 shadow-2xl`}>
+                    <ach.icon size={40} />
+                  </div>
+                  <h4 className="text-xl font-bold text-white mb-2">{ach.title}</h4>
+                  <p className="text-sm text-gray-500 leading-relaxed">{ach.desc}</p>
+                  {!ach.unlocked && (
+                    <div className="mt-4 px-3 py-1 bg-[#1a1a1a] rounded-lg text-[10px] font-bold text-gray-600 uppercase tracking-widest">
+                      Заблокировано
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {activeTab === 'messages' && (
+            <div className="bg-[#252525] border border-[#3a3a3a] rounded-3xl overflow-hidden shadow-2xl flex h-[600px]">
+              {/* Friends List */}
+              <div className="w-80 border-r border-[#3a3a3a] flex flex-col">
+                <div className="p-6 border-b border-[#3a3a3a]">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={16} />
+                    <input 
+                      type="text" 
+                      placeholder="Поиск друзей..."
+                      className="w-full pl-10 pr-4 py-2 bg-[#1a1a1a] border border-[#3a3a3a] rounded-xl text-sm focus:outline-none focus:border-sky-500/50"
+                    />
+                  </div>
+                </div>
+                <div className="flex-1 overflow-y-auto custom-scrollbar p-2">
+                  {users.map((user) => (
+                    <button
+                      key={user.id}
+                      onClick={() => setSelectedFriend(user)}
+                      className={`w-full flex items-center gap-4 p-4 rounded-2xl transition-all ${
+                        selectedFriend?.id === user.id ? 'bg-sky-500/10 border border-sky-500/30' : 'hover:bg-white/5'
+                      }`}
+                    >
+                      <div className="w-12 h-12 rounded-2xl bg-[#2d2d2d] flex items-center justify-center text-xl shadow-lg">
+                        {user.avatar}
+                      </div>
+                      <div className="flex-1 text-left min-w-0">
+                        <div className="font-bold text-white text-sm truncate">{user.name}</div>
+                        <div className="text-[10px] text-gray-500 font-medium truncate">Был(а) недавно</div>
+                      </div>
+                      {user.id === '1' && (
+                        <div className="w-2 h-2 rounded-full bg-sky-500 shadow-[0_0_10px_rgba(14,165,233,0.8)]" />
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Chat Window */}
+              <div className="flex-1 flex flex-col bg-[#1f1f1f]/50">
+                {selectedFriend ? (
+                  <>
+                    <div className="p-6 border-b border-[#3a3a3a] flex items-center justify-between bg-[#252525]">
+                      <div className="flex items-center gap-4">
+                        <div className="w-10 h-10 rounded-xl bg-[#2d2d2d] flex items-center justify-center text-lg">
+                          {selectedFriend.avatar}
+                        </div>
+                        <div>
+                          <div className="font-bold text-white">{selectedFriend.name}</div>
+                          <div className="text-[10px] text-sky-400 font-bold uppercase tracking-wider">В сети</div>
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <button className="p-2 hover:bg-white/5 rounded-lg text-gray-400"><Settings size={20} /></button>
+                      </div>
+                    </div>
+                    
+                    <div className="flex-1 overflow-y-auto p-6 space-y-4 custom-scrollbar">
+                      {(chats[selectedFriend.id] || []).map((msg, i) => (
+                        <div key={i} className={`flex ${msg.sender === 'me' ? 'justify-end' : 'justify-start'}`}>
+                          <div className={`max-w-[70%] p-4 rounded-2xl text-sm ${
+                            msg.sender === 'me' 
+                              ? 'bg-sky-600 text-white rounded-br-none shadow-xl shadow-sky-900/20' 
+                              : 'bg-[#2d2d2d] text-gray-100 rounded-bl-none border border-[#3a3a3a]'
+                          }`}>
+                            {msg.text}
+                            <div className={`text-[10px] mt-2 opacity-50 ${msg.sender === 'me' ? 'text-right' : 'text-left'}`}>
+                              {msg.time}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="p-6 bg-[#252525] border-t border-[#3a3a3a]">
+                      <div className="relative flex items-center gap-4">
+                        <input
+                          type="text"
+                          placeholder="Напишите сообщение..."
+                          value={messageText}
+                          onChange={(e) => setMessageText(e.target.value)}
+                          onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
+                          className="flex-1 px-6 py-4 bg-[#1a1a1a] border border-[#3a3a3a] rounded-2xl text-sm focus:outline-none focus:border-sky-500/50 transition-all"
+                        />
+                        <button 
+                          onClick={handleSendMessage}
+                          className="p-4 bg-sky-600 hover:bg-sky-500 text-white rounded-2xl shadow-xl transition-all transform active:scale-95"
+                        >
+                          <Send size={20} />
+                        </button>
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <div className="flex-1 flex flex-col items-center justify-center text-gray-500 opacity-50 p-12 text-center">
+                    <MessageSquare size={80} className="mb-6" />
+                    <h3 className="text-2xl font-bold mb-2">Ваши сообщения</h3>
+                    <p>Выберите друга из списка слева, чтобы начать общение и делиться успехами в обучении.</p>
                   </div>
                 )}
-              </motion.button>
-            ))}
-            {(activeTab === 'created' && createdByMe.length === 0) && (
-              <p className="text-sm text-gray-400 col-span-full">
-                Вы ещё не создали ни одного курса. Попробуйте опубликовать курс в разделе «Коммьюнити».
-              </p>
-            )}
-          </div>
+              </div>
+            </div>
+          )}
         </motion.div>
 
         {/* Settings Button */}

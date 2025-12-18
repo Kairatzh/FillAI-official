@@ -1,8 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
-import { BookOpen, Clock, Target, BarChart, Search, ChevronDown } from 'lucide-react';
+import { BookOpen, Clock, Target, BarChart, Search } from 'lucide-react';
 import { getCourses, getCategories, Course } from '@/data/mockStore';
 import CoursePreview from '@/components/CoursePreview';
 
@@ -12,42 +12,64 @@ export default function LibraryPage() {
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   
   const categories = getCategories().filter((cat) => cat.courses.length > 0);
-  
-  // По умолчанию все категории развернуты
-  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(
-    new Set(categories.map(cat => cat.id))
-  );
   const courses = getCourses();
 
-  const toggleCategory = (categoryId: string) => {
-    const newExpanded = new Set(expandedCategories);
-    if (newExpanded.has(categoryId)) {
-      newExpanded.delete(categoryId);
-    } else {
-      newExpanded.add(categoryId);
-    }
-    setExpandedCategories(newExpanded);
-  };
+  // Плоский список курсов с привязкой к категории
+  const flattened = useMemo(
+    () =>
+      categories.flatMap((cat) =>
+        cat.courses.map((course) => ({ course, category: cat }))
+      ),
+    [categories]
+  );
 
-  const filteredCategories = categories.filter((category) => {
-    if (selectedCategory !== 'all' && category.id !== selectedCategory) return false;
-    if (!searchQuery) return true;
-    const categoryMatches = category.label.toLowerCase().includes(searchQuery.toLowerCase());
-    const coursesMatch = category.courses.some((course) =>
-      course.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      course.description.toLowerCase().includes(searchQuery.toLowerCase())
-    );
-    return categoryMatches || coursesMatch;
-  });
+  const filteredCourses = useMemo(
+    () =>
+      flattened.filter(({ course, category }) => {
+        if (selectedCategory !== 'all' && category.id !== selectedCategory) return false;
+
+        if (!searchQuery.trim()) return true;
+        const q = searchQuery.toLowerCase();
+
+        const inTitle = course.title.toLowerCase().includes(q);
+        const inDesc = course.description.toLowerCase().includes(q);
+
+        return inTitle || inDesc;
+      }),
+    [flattened, selectedCategory, searchQuery]
+  );
 
   return (
     <div className="flex-1 overflow-auto bg-[#1a1a1a] text-white p-8">
       <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold mb-2">Моя библиотека</h1>
-          <p className="text-gray-400">Все ваши сохраненные и созданные курсы в одном месте</p>
-        </div>
+        {/* Hero / Header */}
+        <motion.div
+          className="mb-10 rounded-3xl bg-gradient-to-r from-sky-600 via-indigo-700 to-violet-800 p-8 shadow-2xl relative overflow-hidden"
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+        >
+          <div className="relative z-10 flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+            <div>
+              <h1 className="text-4xl md:text-5xl font-black text-white mb-3 leading-tight">
+                Ваша личная библиотека
+              </h1>
+              <p className="text-sky-100/90 text-lg max-w-2xl">
+                Все ваши курсы, аккуратно разложенные по полкам: продолжайте обучение или открывайте новые направления.
+              </p>
+            </div>
+            <div className="flex flex-col items-start md:items-end gap-2 text-sm text-sky-100/80">
+              <div className="flex items-center gap-2">
+                <BookOpen size={18} />
+                <span>{courses.length} курсов</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Target size={18} />
+                <span>Фокус на ваших целях обучения</span>
+              </div>
+            </div>
+          </div>
+          <BookOpen className="absolute -right-10 -bottom-10 w-56 h-56 text-white/10" />
+        </motion.div>
 
         {/* Search */}
         <div className="flex gap-4 mb-8">
@@ -65,7 +87,7 @@ export default function LibraryPage() {
 
         {/* Filter by category */}
         {categories.length > 0 && (
-          <div className="flex gap-3 mb-8">
+          <div className="flex flex-wrap gap-3 mb-8">
             <button
               onClick={() => setSelectedCategory('all')}
               className={`px-6 py-2 rounded-lg border transition-colors ${
@@ -92,84 +114,57 @@ export default function LibraryPage() {
           </div>
         )}
 
-        {/* Categories with Courses */}
-        {filteredCategories.length === 0 ? (
+        {/* Courses Grid */}
+        {filteredCourses.length === 0 ? (
           <div className="text-center py-20">
             <BookOpen className="mx-auto text-gray-600 mb-4" size={48} />
             <p className="text-gray-400 text-lg">Группы и курсы не найдены</p>
           </div>
         ) : (
-          <div className="space-y-4">
-            {filteredCategories.map((category) => (
-              <motion.div
-                key={category.id}
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+            {filteredCourses.map(({ course, category }, index) => (
+              <motion.button
+                key={course.id}
+                type="button"
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="bg-[#252525] border border-[#3a3a3a] rounded-xl overflow-hidden"
+                transition={{ delay: index * 0.04 }}
+                onClick={() => setSelectedCourse(course)}
+                className="group relative text-left bg-[#252525] border border-[#3a3a3a] rounded-3xl overflow-hidden hover:border-sky-500/60 hover:shadow-2xl hover:shadow-sky-900/30 transition-all"
               >
-                {/* Category Header */}
-                <button
-                  onClick={() => toggleCategory(category.id)}
-                  className="w-full px-6 py-4 flex items-center justify-between hover:bg-[#2d2d2d] transition-colors"
-                >
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-lg bg-[#2d2d2d] flex items-center justify-center">
-                      <BookOpen className="text-gray-400" size={24} />
-                    </div>
-                    <div className="text-left">
-                      <h3 className="text-xl font-semibold text-white">{category.label}</h3>
-                      <p className="text-sm text-gray-400">{category.courses.length} курсов</p>
-                    </div>
+                <div className="absolute inset-x-0 top-0 h-24 bg-gradient-to-r from-sky-500/30 via-indigo-500/20 to-purple-500/10 opacity-60 group-hover:opacity-90 transition-opacity" />
+                <div className="relative p-6 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-bold uppercase tracking-widest bg-black/40 border border-white/10 text-sky-100 px-2 py-1 rounded-full">
+                      {category.label}
+                    </span>
+                    <span className="text-[10px] font-semibold uppercase tracking-widest text-gray-300 bg-[#1f1f1f]/80 px-2 py-1 rounded-full">
+                      {course.level}
+                    </span>
                   </div>
-                  <motion.div
-                    animate={{ rotate: expandedCategories.has(category.id) ? 180 : 0 }}
-                    transition={{ duration: 0.2 }}
-                  >
-                    <ChevronDown className="text-gray-400" size={20} />
-                  </motion.div>
-                </button>
-
-                {/* Courses in Category */}
-                <motion.div
-                  initial={false}
-                  animate={{
-                    height: expandedCategories.has(category.id) ? 'auto' : 0,
-                    opacity: expandedCategories.has(category.id) ? 1 : 0,
-                  }}
-                  transition={{ duration: 0.3 }}
-                  className="overflow-hidden"
-                >
-                  <div className="px-6 pb-4 pt-2 space-y-2">
-                    {category.courses.map((course) => (
-                      <motion.div
-                        key={course.id}
-                        initial={{ opacity: 0, x: -10 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        className="bg-[#2d2d2d] border border-[#3a3a3a] rounded-lg p-4 cursor-pointer hover:border-[#4a4a4a] hover:bg-[#353535] transition-all"
-                        onClick={() => setSelectedCourse(course)}
-                      >
-                        <div className="flex items-center justify-between">
-                          <div className="flex-1">
-                            <h4 className="font-semibold text-white mb-1">{course.title}</h4>
-                            <p className="text-sm text-gray-400 mb-2 line-clamp-1">{course.description}</p>
-                            <div className="flex items-center gap-4 text-xs text-gray-500">
-                              <div className="flex items-center gap-1">
-                                <BarChart size={14} />
-                                {course.level}
-                              </div>
-                              <div className="flex items-center gap-1">
-                                <Clock size={14} />
-                                {course.duration}
-                              </div>
-                            </div>
-                          </div>
-                          <BookOpen className="text-gray-500 ml-4" size={20} />
-                        </div>
-                      </motion.div>
-                    ))}
+                  <h3 className="text-lg font-bold text-white leading-snug line-clamp-2 group-hover:text-sky-300 transition-colors">
+                    {course.title}
+                  </h3>
+                  <p className="text-sm text-gray-400 line-clamp-2 min-h-[40px]">
+                    {course.description}
+                  </p>
+                  <div className="flex items-center justify-between text-xs text-gray-400 pt-2 border-t border-[#3a3a3a]">
+                    <div className="flex items-center gap-3">
+                      <span className="flex items-center gap-1.5">
+                        <BarChart size={14} />
+                        {course.level}
+                      </span>
+                      <span className="flex items-center gap-1.5">
+                        <Clock size={14} />
+                        {course.duration}
+                      </span>
+                    </div>
+                    <span className="flex items-center gap-1.5 text-sky-400 group-hover:text-sky-300">
+                      Подробнее
+                    </span>
                   </div>
-                </motion.div>
-              </motion.div>
+                </div>
+              </motion.button>
             ))}
           </div>
         )}
