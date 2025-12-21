@@ -8,13 +8,13 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        'dark-bg': '#0a0a0a',
+        'dark-bg': '#050505',
         'dark-surface': '#121212',
-        'dark-elevated': '#1a1a1a',
-        'accent-blue': '#3b82f6',
-        'accent-purple': '#8b5cf6',
-        'glow-blue': 'rgba(59, 130, 246, 0.3)',
-        'glow-purple': 'rgba(139, 92, 246, 0.3)',
+        'dark-elevated': '#1f1f1f',
+        'accent-blue': '#3c3c3c',
+        'accent-purple': '#4a4a4a',
+        'glow-blue': 'rgba(60, 60, 60, 0.5)',
+        'glow-purple': 'rgba(80, 80, 80, 0.5)',
       },
       backdropBlur: {
         'glass': '20px',

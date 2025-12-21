@@ -39,17 +39,17 @@ export default function BackgroundEnvironment() {
       const parallaxX = (cursorPosition.x / canvas.width - 0.5) * 50;
       const parallaxY = (cursorPosition.y / canvas.height - 0.5) * 50;
 
-      // Multiple radial gradients for depth
+      // Multiple radial gradients for depth (серо-черная палитра)
       const gradients = [
-        { x: canvas.width * 0.3 + parallaxX, y: canvas.height * 0.2 + parallaxY, radius: 600, opacity: 0.03 },
-        { x: canvas.width * 0.7 - parallaxX, y: canvas.height * 0.8 - parallaxY, radius: 500, opacity: 0.02 },
-        { x: canvas.width * 0.5 + Math.sin(time) * 30, y: canvas.height * 0.5 + Math.cos(time * 0.7) * 30, radius: 400, opacity: 0.015 },
+        { x: canvas.width * 0.3 + parallaxX, y: canvas.height * 0.2 + parallaxY, radius: 600, opacity: 0.06 },
+        { x: canvas.width * 0.7 - parallaxX, y: canvas.height * 0.8 - parallaxY, radius: 500, opacity: 0.05 },
+        { x: canvas.width * 0.5 + Math.sin(time) * 30, y: canvas.height * 0.5 + Math.cos(time * 0.7) * 30, radius: 400, opacity: 0.04 },
       ];
 
       gradients.forEach((grad) => {
         const gradient = ctx.createRadialGradient(grad.x, grad.y, 0, grad.x, grad.y, grad.radius);
-        gradient.addColorStop(0, `rgba(107, 114, 128, ${grad.opacity})`);
-        gradient.addColorStop(0.5, `rgba(75, 85, 99, ${grad.opacity * 0.5})`);
+        gradient.addColorStop(0, `rgba(60, 60, 60, ${grad.opacity})`);
+        gradient.addColorStop(0.5, `rgba(30, 30, 30, ${grad.opacity * 0.7})`);
         gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
 
         ctx.fillStyle = gradient;
@@ -73,12 +73,12 @@ export default function BackgroundEnvironment() {
     <div className="fixed inset-0 pointer-events-none overflow-hidden">
       {/* Radial gradient overlays */}
       <motion.div
-        className="absolute inset-0 opacity-10"
+        className="absolute inset-0 opacity-20"
         animate={{
           background: [
-            'radial-gradient(circle at 30% 20%, rgba(107, 114, 128, 0.08) 0%, transparent 50%)',
-            'radial-gradient(circle at 70% 80%, rgba(75, 85, 99, 0.08) 0%, transparent 50%)',
-            'radial-gradient(circle at 30% 20%, rgba(107, 114, 128, 0.08) 0%, transparent 50%)',
+            'radial-gradient(circle at 30% 20%, rgba(60, 60, 60, 0.15) 0%, transparent 55%)',
+            'radial-gradient(circle at 70% 80%, rgba(80, 80, 80, 0.12) 0%, transparent 55%)',
+            'radial-gradient(circle at 30% 20%, rgba(60, 60, 60, 0.15) 0%, transparent 55%)',
           ],
         }}
         transition={{
@@ -99,7 +99,7 @@ export default function BackgroundEnvironment() {
       <motion.div
         className="absolute inset-0"
         style={{
-          background: 'radial-gradient(ellipse at center, transparent 0%, rgba(10, 10, 10, 0.3) 100%)',
+          background: 'radial-gradient(ellipse at center, transparent 0%, rgba(20, 20, 20, 0.6) 100%)',
         }}
         animate={{
           opacity: [0.3, 0.4, 0.3],

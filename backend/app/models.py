@@ -151,3 +151,32 @@ class AssistantChatResponse(BaseModel):
     success: bool
     reply: Optional[str] = None
     error: Optional[str] = None
+
+
+class TestQuestion(BaseModel):
+    """Вопрос теста"""
+    question: str
+    options: List[str] = Field(..., description="Список вариантов ответа (4 варианта)")
+    correct: int = Field(..., ge=0, le=3, description="Индекс правильного ответа (0-3)")
+    explanation: str = Field(..., description="Объяснение правильного ответа")
+
+
+class ModuleTest(BaseModel):
+    """Тест для модуля"""
+    tests: List[TestQuestion] = Field(..., description="Список вопросов теста (2-3 вопроса)")
+
+
+class ModuleTestRequest(BaseModel):
+    """Запрос на генерацию теста для модуля"""
+    course_title: str
+    course_difficulty: str
+    module_title: str
+    module_description: str
+    lessons: List[Dict[str, Any]] = Field(..., description="Список уроков модуля")
+
+
+class ModuleTestResponse(BaseModel):
+    """Ответ с тестом для модуля"""
+    success: bool
+    test: Optional[ModuleTest] = None
+    error: Optional[str] = None

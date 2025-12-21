@@ -5,6 +5,7 @@ import { motion } from 'framer-motion';
 import { BookOpen, Clock, Target, BarChart, Search } from 'lucide-react';
 import { getCourses, getCategories, Course } from '@/data/mockStore';
 import CoursePreview from '@/components/CoursePreview';
+import { calculateCourseProgress } from '@/utils/courseProgress';
 
 export default function LibraryPage() {
   const [searchQuery, setSearchQuery] = useState('');
@@ -148,6 +149,32 @@ export default function LibraryPage() {
                   <p className="text-sm text-gray-400 line-clamp-2 min-h-[40px]">
                     {course.description}
                   </p>
+                  
+                  {/* Progress Bar */}
+                  {(() => {
+                    const totalLessons = course.modules.reduce((sum, m) => sum + m.lessons.length, 0);
+                    const progress = calculateCourseProgress(course.id, totalLessons);
+                    if (progress > 0) {
+                      return (
+                        <div className="space-y-1">
+                          <div className="flex items-center justify-between text-xs text-gray-400">
+                            <span>Прогресс</span>
+                            <span className="text-sky-400 font-semibold">{progress}%</span>
+                          </div>
+                          <div className="h-1.5 bg-[#1a1a1a] rounded-full overflow-hidden">
+                            <motion.div
+                              className="h-full bg-gradient-to-r from-sky-500 to-indigo-500"
+                              initial={{ width: 0 }}
+                              animate={{ width: `${progress}%` }}
+                              transition={{ duration: 0.5 }}
+                            />
+                          </div>
+                        </div>
+                      );
+                    }
+                    return null;
+                  })()}
+                  
                   <div className="flex items-center justify-between text-xs text-gray-400 pt-2 border-t border-[#3a3a3a]">
                     <div className="flex items-center gap-3">
                       <span className="flex items-center gap-1.5">

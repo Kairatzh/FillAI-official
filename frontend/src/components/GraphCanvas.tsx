@@ -5,6 +5,7 @@ import { motion } from 'framer-motion';
 import { useGraphStore } from '@/store/graphStore';
 import { useUIStore } from '@/store/uiStore';
 import { PhysicsEngine } from '@/lib/physicsEngine';
+import { getCategories } from '@/data/mockStore';
 import NodeComponent from './Node';
 import NodeLink from './NodeLink';
 import { Maximize2 } from 'lucide-react';
@@ -12,8 +13,26 @@ import { Maximize2 } from 'lucide-react';
 export default function GraphCanvas() {
   const svgRef = useRef<SVGSVGElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const { nodes, links, updatePhysics, isDragging, centerGraph } = useGraphStore();
+  const { nodes, links, updatePhysics, isDragging, centerGraph, expandedCategories, regenerateGraph } = useGraphStore();
   const { setCursorPosition } = useUIStore();
+  
+  // Фильтруем узлы: показываем курсы только если их категория раскрыта
+  const visibleNodes = nodes.filter((node) => {
+    if (node.type === 'center' || node.type === 'primary') {
+      return true; // Всегда показываем центр и категории
+    }
+    // Для курсов проверяем, раскрыта ли их категория
+    if (node.type === 'sub') {
+      // Находим категорию этого курса
+      const categories = getCategories();
+      for (const category of categories) {
+        if (category.courses.some(c => c.id === node.id)) {
+          return expandedCategories.has(category.id);
+        }
+      }
+    }
+    return false;
+  });
   const [graphCenter, setGraphCenter] = useState({ x: 0, y: 0 });
   const engineRef = useRef<PhysicsEngine | null>(null);
   const animationFrameRef = useRef<number>();
@@ -56,23 +75,27 @@ export default function GraphCanvas() {
     }
   }, [nodes, links]);
 
-  // Physics animation loop (без вращения графа)
+  // Physics animation loop - отключен во время перетаскивания
   useEffect(() => {
     const animate = () => {
+      // Не запускаем физику во время перетаскивания
       if (engineRef.current && !isDragging) {
         const { cursorPosition } = useUIStore.getState();
         // Convert cursor position to graph coordinate system (относительно центра графа)
         const cursorX = cursorPosition.x - graphCenter.x;
         const cursorY = cursorPosition.y - graphCenter.y;
 
-        // Плавная, но стабильная физика без \"кручения\" графа
+        // Плавная, но стабильная физика без "кручения" графа
         updatePhysics(engineRef.current, cursorX, cursorY);
       }
 
       animationFrameRef.current = requestAnimationFrame(animate);
     };
 
-    animationFrameRef.current = requestAnimationFrame(animate);
+    // Запускаем анимацию только если не перетаскиваем
+    if (!isDragging) {
+      animationFrameRef.current = requestAnimationFrame(animate);
+    }
 
     return () => {
       if (animationFrameRef.current) {
@@ -155,7 +178,7 @@ export default function GraphCanvas() {
 
           {/* Nodes */}
           <g>
-            {nodes.map((node) => (
+            {visibleNodes.map((node) => (
               <NodeComponent
                 key={node.id}
                 node={node}

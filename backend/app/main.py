@@ -10,10 +10,15 @@ from app.models import (
     ExerciseCheckResult,
     AssistantChatRequest,
     AssistantChatResponse,
+    ModuleTestRequest,
+    ModuleTestResponse,
+    ModuleTest,
+    TestQuestion,
 )
 from app.agents.course_coordinator import CourseCoordinator
 from app.agents.grading_agent import ExerciseGradingAgent
 from app.agents.assistant_agent import PersonalAssistantAgent
+from app.agents.test_generator_agent import TestGeneratorAgent
 import os
 from dotenv import load_dotenv
 
@@ -39,6 +44,7 @@ app.add_middleware(
 coordinator = CourseCoordinator()
 grading_agent = ExerciseGradingAgent()
 assistant_agent = PersonalAssistantAgent()
+test_generator = TestGeneratorAgent()
 
 
 @app.get("/")
@@ -176,6 +182,62 @@ async def assistant_chat(request: AssistantChatRequest):
         return AssistantChatResponse(success=True, reply=reply)
     except Exception as e:
         return AssistantChatResponse(success=False, error=str(e))
+
+
+@app.post("/api/courses/generate-module-test", response_model=ModuleTestResponse)
+async def generate_module_test(request: ModuleTestRequest):
+    """
+    Генерирует тест для модуля курса (2-3 вопроса).
+    
+    Использует TestGeneratorAgent для создания тестов на основе:
+    - Названия курса и модуля
+    - Описания модуля
+    - Списка уроков в модуле
+    - Уровня сложности курса
+    """
+    try:
+        # Проверяем наличие API ключа OpenAI
+        api_key = os.getenv("OPENAI_API_KEY")
+        if not api_key:
+            return ModuleTestResponse(
+                success=False,
+                error="OPENAI_API_KEY не установлен в переменных окружения"
+            )
+        
+        # Генерируем тест для модуля
+        test_data = await test_generator.generate_module_tests(
+            course_title=request.course_title,
+            module_title=request.module_title,
+            module_description=request.module_description,
+            lessons=request.lessons,
+            difficulty=request.course_difficulty
+        )
+        
+        # Преобразуем в модель
+        test_questions = [
+            TestQuestion(
+                question=t["question"],
+                options=t["options"],
+                correct=t["correct"],
+                explanation=t["explanation"]
+            )
+            for t in test_data.get("tests", [])
+        ]
+        
+        module_test = ModuleTest(tests=test_questions)
+        
+        return ModuleTestResponse(
+            success=True,
+            test=module_test,
+        )
+    
+    except Exception as e:
+        error_msg = str(e)
+        print(f"Ошибка при генерации теста: {error_msg}")
+        return ModuleTestResponse(
+            success=False,
+            error=f"Ошибка при генерации теста: {error_msg}"
+        )
 
 
 if __name__ == "__main__":

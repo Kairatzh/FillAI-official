@@ -127,6 +127,34 @@ export interface AssistantChatResponse {
   error?: string;
 }
 
+export interface TestQuestion {
+  question: string;
+  options: string[];
+  correct: number;
+  explanation: string;
+}
+
+export interface ModuleTest {
+  tests: TestQuestion[];
+}
+
+export interface ModuleTestRequest {
+  course_title: string;
+  course_difficulty: string;
+  module_title: string;
+  module_description: string;
+  lessons: Array<{
+    title: string;
+    content?: string;
+  }>;
+}
+
+export interface ModuleTestResponse {
+  success: boolean;
+  test?: ModuleTest;
+  error?: string;
+}
+
 /**
  * Преобразует настройки фронтенда в формат бэкенда
  */
@@ -302,6 +330,23 @@ export async function assistantChat(
   }
 
   const data: AssistantChatResponse = await response.json();
+  return data;
+}
+
+export async function generateModuleTest(
+  payload: ModuleTestRequest
+): Promise<ModuleTestResponse> {
+  const response = await fetch(`${API_BASE_URL}/api/courses/generate-module-test`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Ошибка генерации теста: ${response.status}`);
+  }
+
+  const data: ModuleTestResponse = await response.json();
   return data;
 }
 

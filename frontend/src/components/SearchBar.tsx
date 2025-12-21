@@ -72,7 +72,7 @@ export default function SearchBar() {
 
   return (
     <>
-      <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-40">
+      <div className="fixed bottom-12 left-1/2 -translate-x-1/2 z-40">
         <motion.form
           onSubmit={handleTopicSubmit}
           className="relative"
@@ -90,7 +90,7 @@ export default function SearchBar() {
             onFocus={() => setIsFocused(true)}
             onBlur={() => setIsFocused(false)}
             disabled={isGenerating}
-            className="relative w-96 px-6 py-4 pr-12 bg-[#252525] backdrop-blur-glass border border-[#3a3a3a] rounded-full text-white placeholder-gray-500 focus:outline-none focus:border-[#4a4a4a] transition-all"
+            className="relative w-[600px] px-8 py-5 pr-16 bg-[#252525] backdrop-blur-glass border border-[#3a3a3a] rounded-full text-white placeholder-gray-500 focus:outline-none focus:border-[#4a4a4a] transition-all text-lg"
             whileFocus={{
               borderColor: 'rgba(107, 114, 128, 0.7)',
               boxShadow: '0 0 20px rgba(107, 114, 128, 0.2)',
@@ -99,7 +99,7 @@ export default function SearchBar() {
 
           {/* Icon */}
           <motion.div
-            className="absolute right-6 top-1/2 -translate-y-1/2 text-gray-400"
+            className="absolute right-8 top-1/2 -translate-y-1/2 text-gray-400"
             animate={{
               opacity: isFocused ? 1 : 0.6,
             }}
@@ -109,10 +109,10 @@ export default function SearchBar() {
                 animate={{ rotate: 360 }}
                 transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
               >
-                <Sparkles size={20} />
+                <Sparkles size={24} />
               </motion.div>
             ) : (
-              <Sparkles size={20} />
+              <Sparkles size={24} />
             )}
           </motion.div>
         </motion.form>

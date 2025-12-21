@@ -2,6 +2,7 @@
 
 import { motion, AnimatePresence } from 'framer-motion';
 import { useEffect, useRef, useState } from 'react';
+import { ChevronDown, ChevronUp, Edit2, Save, X, Trash2, Pin, PinOff, RotateCcw } from 'lucide-react';
 import { useUIStore } from '@/store/uiStore';
 import { useGraphStore } from '@/store/graphStore';
 import { getCategories } from '@/data/mockStore';
@@ -10,9 +11,12 @@ import { Course } from '@/data/mockStore';
 
 export default function FloatingPanel() {
   const { panelVisible, panelPosition, hidePanel, setCurrentPage } = useUIStore();
-  const { selectedNodeId, nodes } = useGraphStore();
+  const { selectedNodeId, nodes, toggleCategory, isCategoryExpanded, renameNode, updateNode, saveNodePositions, centerGraph } = useGraphStore();
   const panelRef = useRef<HTMLDivElement>(null);
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
+  const [isRenaming, setIsRenaming] = useState(false);
+  const [renameValue, setRenameValue] = useState('');
+  const [isPinned, setIsPinned] = useState(false);
 
   const selectedNode = nodes.find((n) => n.id === selectedNodeId);
   
@@ -20,6 +24,69 @@ export default function FloatingPanel() {
   const categories = getCategories();
   const allCourses = categories.flatMap(cat => cat.courses);
   const courseForNode = selectedNode ? allCourses.find(c => c.id === selectedNode.id) : null;
+  
+  // Проверяем, является ли узел категорией
+  const isCategory = selectedNode?.type === 'primary';
+  const categoryExpanded = isCategory && selectedNode ? isCategoryExpanded(selectedNode.id) : false;
+  const categoryCourses = isCategory && selectedNode 
+    ? categories.find(cat => cat.id === selectedNode.id)?.courses || []
+    : [];
+
+  // Инициализация значения переименования
+  useEffect(() => {
+    if (selectedNode && isRenaming) {
+      setRenameValue(selectedNode.label);
+    }
+  }, [selectedNode, isRenaming]);
+
+  const handleRename = () => {
+    if (selectedNode && renameValue.trim()) {
+      renameNode(selectedNode.id, renameValue.trim());
+      setIsRenaming(false);
+      saveNodePositions();
+    }
+  };
+
+  const handleResetPosition = () => {
+    if (selectedNode && selectedNode.type !== 'center') {
+      // Сбрасываем позицию к исходной (из generateNodes)
+      const categories = getCategories().filter(cat => cat.courses.length > 0);
+      if (selectedNode.type === 'primary') {
+        // Находим индекс категории
+        const catIndex = categories.findIndex(cat => cat.id === selectedNode.id);
+        if (catIndex !== -1) {
+          const categoryRadius = 200;
+          const categoryAngleStep = (2 * Math.PI) / categories.length;
+          const categoryAngle = catIndex * categoryAngleStep;
+          const categoryX = Math.cos(categoryAngle) * categoryRadius;
+          const categoryY = Math.sin(categoryAngle) * categoryRadius;
+          updateNode(selectedNode.id, { x: categoryX, y: categoryY, vx: 0, vy: 0 });
+        }
+      } else if (selectedNode.type === 'sub') {
+        // Для курса нужно найти его категорию и позицию
+        const category = categories.find(cat => cat.courses.some(c => c.id === selectedNode.id));
+        if (category) {
+          const catIndex = categories.findIndex(cat => cat.id === category.id);
+          const categoryRadius = 200;
+          const courseRadius = 120;
+          const categoryAngleStep = (2 * Math.PI) / categories.length;
+          const categoryAngle = catIndex * categoryAngleStep;
+          const categoryX = Math.cos(categoryAngle) * categoryRadius;
+          const categoryY = Math.sin(categoryAngle) * categoryRadius;
+          
+          const courseIndex = category.courses.findIndex(c => c.id === selectedNode.id);
+          const courseCount = category.courses.length;
+          const courseAngleStep = (2 * Math.PI) / courseCount;
+          const courseAngle = courseIndex * courseAngleStep;
+          const courseX = categoryX + Math.cos(courseAngle) * courseRadius;
+          const courseY = categoryY + Math.sin(courseAngle) * courseRadius;
+          
+          updateNode(selectedNode.id, { x: courseX, y: courseY, vx: 0, vy: 0 });
+        }
+      }
+      saveNodePositions();
+    }
+  };
 
   // Auto-position panel to avoid graph overlap
   useEffect(() => {
@@ -95,7 +162,10 @@ export default function FloatingPanel() {
             },
           }}
           onMouseLeave={() => {
-            // Optional: hide on mouse leave after delay
+            // Не скрываем панель, если она закреплена
+            if (!isPinned) {
+              // Optional: hide on mouse leave after delay
+            }
           }}
         >
           {/* Shimmer effect */}
@@ -125,7 +195,72 @@ export default function FloatingPanel() {
 
           {/* Content */}
           <div className="relative z-10">
-            <h3 className="text-xl font-bold text-gray-100 mb-2">{selectedNode.label}</h3>
+            <div className="flex items-center justify-between mb-2">
+              {isRenaming ? (
+                <div className="flex items-center gap-2 flex-1">
+                  <input
+                    type="text"
+                    value={renameValue}
+                    onChange={(e) => setRenameValue(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') handleRename();
+                      if (e.key === 'Escape') setIsRenaming(false);
+                    }}
+                    autoFocus
+                    className="flex-1 px-2 py-1 bg-[#1a1a1a] border border-[#3a3a3a] rounded text-gray-100 text-lg font-bold focus:outline-none focus:border-sky-500"
+                  />
+                  <button
+                    onClick={handleRename}
+                    className="p-1.5 hover:bg-[#2d2d2d] rounded transition-colors"
+                    title="Сохранить"
+                  >
+                    <Save size={16} className="text-green-400" />
+                  </button>
+                  <button
+                    onClick={() => setIsRenaming(false)}
+                    className="p-1.5 hover:bg-[#2d2d2d] rounded transition-colors"
+                    title="Отмена"
+                  >
+                    <X size={16} className="text-gray-400" />
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <h3 className="text-xl font-bold text-gray-100 flex-1">{selectedNode.label}</h3>
+                  <div className="flex items-center gap-1">
+                    {selectedNode.type !== 'center' && (
+                      <>
+                        <button
+                          onClick={() => setIsRenaming(true)}
+                          className="p-1.5 hover:bg-[#2d2d2d] rounded transition-colors"
+                          title="Переименовать"
+                        >
+                          <Edit2 size={16} className="text-gray-400 hover:text-sky-400" />
+                        </button>
+                        <button
+                          onClick={handleResetPosition}
+                          className="p-1.5 hover:bg-[#2d2d2d] rounded transition-colors"
+                          title="Сбросить позицию"
+                        >
+                          <RotateCcw size={16} className="text-gray-400 hover:text-amber-400" />
+                        </button>
+                      </>
+                    )}
+                    <button
+                      onClick={() => setIsPinned(!isPinned)}
+                      className="p-1.5 hover:bg-[#2d2d2d] rounded transition-colors"
+                      title={isPinned ? "Открепить" : "Закрепить"}
+                    >
+                      {isPinned ? (
+                        <Pin size={16} className="text-amber-400" />
+                      ) : (
+                        <PinOff size={16} className="text-gray-400 hover:text-amber-400" />
+                      )}
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
             <div className="space-y-2 text-sm text-gray-300">
               <div>
                 <span className="text-gray-400">Тип:</span> {
@@ -160,7 +295,51 @@ export default function FloatingPanel() {
                   </button>
                 </>
               )}
-              {!courseForNode && selectedNode.type !== 'center' && (
+              {isCategory && (
+                <div className="mt-4 pt-4 border-t border-gray-600/50 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <p className="text-gray-200">
+                      Курсов в категории: {categoryCourses.length}
+                    </p>
+                    <button
+                      onClick={() => {
+                        if (selectedNode) {
+                          toggleCategory(selectedNode.id);
+                        }
+                      }}
+                      className="flex items-center gap-2 px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded-lg transition-colors text-gray-100 font-medium"
+                    >
+                      {categoryExpanded ? (
+                        <>
+                          <ChevronUp size={16} />
+                          Скрыть курсы
+                        </>
+                      ) : (
+                        <>
+                          <ChevronDown size={16} />
+                          Показать курсы
+                        </>
+                      )}
+                    </button>
+                  </div>
+                  {categoryExpanded && categoryCourses.length > 0 && (
+                    <div className="mt-2 space-y-2">
+                      <p className="text-xs text-gray-400">Курсы в этой категории:</p>
+                      <div className="space-y-1 max-h-40 overflow-y-auto">
+                        {categoryCourses.map((course) => (
+                          <div
+                            key={course.id}
+                            className="text-xs text-gray-300 bg-gray-700/30 px-2 py-1 rounded"
+                          >
+                            {course.title}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+              {!courseForNode && !isCategory && selectedNode?.type !== 'center' && (
                 <div className="mt-4 pt-4 border-t border-gray-600/50">
                   <p className="text-gray-200">
                     Это категория знаний. Создайте курсы, чтобы увидеть их здесь.
@@ -168,10 +347,41 @@ export default function FloatingPanel() {
                 </div>
               )}
               {selectedNode.type === 'center' && (
-                <div className="mt-4 pt-4 border-t border-gray-600/50">
+                <div className="mt-4 pt-4 border-t border-gray-600/50 space-y-3">
                   <p className="text-gray-200">
                     Вы в центре вашей сети знаний. Изучайте категории и создавайте курсы.
                   </p>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      onClick={() => {
+                        centerGraph();
+                        hidePanel();
+                      }}
+                      className="px-3 py-1.5 bg-gray-600 hover:bg-gray-500 rounded-lg transition-colors text-gray-100 text-xs font-medium flex items-center gap-2"
+                    >
+                      <RotateCcw size={12} />
+                      Центрировать граф
+                    </button>
+                  </div>
+                </div>
+              )}
+              
+              {/* Дополнительные действия для всех узлов */}
+              {selectedNode.type !== 'center' && (
+                <div className="mt-4 pt-4 border-t border-gray-600/50 space-y-2">
+                  <p className="text-xs text-gray-400 uppercase tracking-wider mb-2">Действия</p>
+                  <div className="space-y-1">
+                    <button
+                      onClick={() => {
+                        saveNodePositions();
+                        hidePanel();
+                      }}
+                      className="w-full px-3 py-2 bg-gray-600/50 hover:bg-gray-600 rounded-lg transition-colors text-gray-200 text-sm text-left flex items-center gap-2"
+                    >
+                      <Pin size={14} />
+                      Сохранить позицию
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
