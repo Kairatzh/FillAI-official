@@ -5,14 +5,14 @@ interface UIState {
   panelVisible: boolean;
   panelPosition: { x: number; y: number };
   searchQuery: string;
-  currentPage: 'graph' | 'library' | 'community' | 'profile';
+  currentPage: 'landing' | 'graph' | 'library' | 'community' | 'profile';
   sidebarOpen: boolean;
   setCursorPosition: (x: number, y: number) => void;
   showPanel: (x: number, y: number) => void;
   hidePanel: () => void;
   updatePanelPosition: (x: number, y: number) => void;
   setSearchQuery: (query: string) => void;
-  setCurrentPage: (page: 'graph' | 'library' | 'community' | 'profile') => void;
+  setCurrentPage: (page: 'landing' | 'graph' | 'library' | 'community' | 'profile') => void;
   setSidebarOpen: (open: boolean) => void;
 }
 
@@ -21,7 +21,7 @@ export const useUIStore = create<UIState>((set) => ({
   panelVisible: false,
   panelPosition: { x: 0, y: 0 },
   searchQuery: '',
-  currentPage: 'graph',
+  currentPage: 'landing',
   sidebarOpen: true,
 
   setCursorPosition: (x, y) => set({ cursorPosition: { x, y } }),

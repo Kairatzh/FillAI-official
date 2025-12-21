@@ -2,13 +2,14 @@
 
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { HelpCircle, CreditCard, Info, X, ChevronDown } from 'lucide-react';
+import { HelpCircle, CreditCard, Info, X, ChevronDown, Brain } from 'lucide-react';
 import { useUIStore } from '@/store/uiStore';
 
 export default function TopBar() {
   const [showFAQ, setShowFAQ] = useState(false);
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
   const sidebarOpen = useUIStore((state) => state.sidebarOpen);
+  const { setCurrentPage, currentPage } = useUIStore();
 
   const faqItems = [
     {
@@ -33,15 +34,17 @@ export default function TopBar() {
     <>
       <div className="absolute top-0 left-0 right-0 z-40">
         <div className="flex items-center justify-between px-6 py-3">
-          <motion.div 
-            className="flex items-center gap-4"
+          <motion.button
+            onClick={() => setCurrentPage('landing')}
+            className="flex items-center gap-2 hover:opacity-80 transition-opacity"
             animate={{
               x: sidebarOpen ? 340 : 0,
             }}
             transition={{ duration: 0.3, ease: 'easeInOut' }}
           >
+            <Brain size={24} className="text-blue-400" />
             <h1 className="text-2xl font-extrabold text-white tracking-tight">Fill AI</h1>
-          </motion.div>
+          </motion.button>
 
           <div className="flex items-center gap-2">
             {/* FAQ */}

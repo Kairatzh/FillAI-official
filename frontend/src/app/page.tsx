@@ -9,11 +9,17 @@ import JasperAssistant from '@/components/JasperAssistant';
 import CommunityPage from '@/pages/CommunityPage';
 import LibraryPage from '@/pages/LibraryPage';
 import ProfilePage from '@/pages/ProfilePage';
+import LandingPage from '@/pages/LandingPage';
 import TopBar from '@/components/TopBar';
 import { useUIStore } from '@/store/uiStore';
 
 export default function Home() {
   const { currentPage } = useUIStore();
+
+  // Показываем лендинг без сайдбара и топбара
+  if (currentPage === 'landing') {
+    return <LandingPage />;
+  }
 
   return (
     <main className="relative w-full h-screen overflow-hidden bg-[#1a1a1a] flex flex-col">

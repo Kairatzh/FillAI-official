@@ -22,6 +22,9 @@ export interface Course {
   isPaid?: boolean;
   price?: number;
   isPublic?: boolean;
+  isPrivate?: boolean; // Приватный курс (доступ по ссылке)
+  shareLink?: string; // Ссылка для доступа к приватному курсу
+  enrolledStudents?: string[]; // ID студентов, записанных на курс
   tags?: string[];
   language?: string;
   createdBy?: string;
@@ -367,6 +370,7 @@ export function createUserCourse(input: {
   isPaid: boolean;
   price?: number;
   tags?: string;
+  isPrivate?: boolean;
 }): Course {
   const courseId = crypto.randomUUID();
   const categoryId = input.categoryName.toLowerCase().replace(/\s+/g, '-');
@@ -382,6 +386,9 @@ export function createUserCourse(input: {
     categories.push(category);
   }
 
+  const isPrivate = input.isPrivate || false;
+  const shareLink = isPrivate ? `${typeof window !== 'undefined' ? window.location.origin : ''}/course/${courseId}` : undefined;
+
   const course: Course = {
     id: courseId,
     title: input.title,
@@ -395,7 +402,10 @@ export function createUserCourse(input: {
     createdAt: new Date().toISOString(),
     isPaid: input.isPaid,
     price: input.isPaid ? (input.price || 0) : 0,
-    isPublic: true,
+    isPublic: !isPrivate,
+    isPrivate: isPrivate,
+    shareLink: shareLink,
+    enrolledStudents: [],
     tags: input.tags
       ? input.tags
           .split(',')
