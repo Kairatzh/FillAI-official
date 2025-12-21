@@ -25,9 +25,17 @@ export interface Course {
   isPrivate?: boolean; // Приватный курс (доступ по ссылке)
   shareLink?: string; // Ссылка для доступа к приватному курсу
   enrolledStudents?: string[]; // ID студентов, записанных на курс
+  studentProgress?: Record<string, { // Прогресс каждого студента
+    completedLessons: string[]; // ID завершенных уроков
+    lastAccessed?: string; // Дата последнего доступа
+    enrolledAt: string; // Дата записи
+    progress: number; // Процент прогресса
+  }>;
   tags?: string[];
   language?: string;
   createdBy?: string;
+  publishedAt?: string; // Дата публикации в сообществе
+  views?: number; // Количество просмотров
   modules: Module[];
 }
 
@@ -498,19 +506,122 @@ export function shareCourseToCommunity(course: Course): SharedCourse {
   const existing = sharedCourses.find((sc) => sc.courseId === course.id);
   if (existing) return existing;
 
+  // Обновляем курс - делаем его публичным и добавляем дату публикации
+  const courseIndex = courses.findIndex(c => c.id === course.id);
+  if (courseIndex !== -1) {
+    courses[courseIndex] = {
+      ...courses[courseIndex],
+      isPublic: true,
+      isPrivate: false,
+      publishedAt: new Date().toISOString(),
+      views: 0,
+      studentProgress: courses[courseIndex].studentProgress || {},
+    };
+  }
+
   const shared: SharedCourse = {
     id: crypto.randomUUID(),
     courseId: course.id,
     sharedAt: new Date().toISOString(),
-    authorName: 'Вы',
+    authorName: course.createdBy || 'Вы',
     authorAvatar: 'ВЫ',
-    enrolledCount: Math.floor(Math.random() * 500) + 20,
+    enrolledCount: course.enrolledStudents?.length || 0,
     rating: 4 + Math.random(), // 4.0–5.0
     reviewsCount: Math.floor(Math.random() * 90) + 5,
   };
 
   sharedCourses.push(shared);
   return shared;
+}
+
+// Записаться на курс
+export function enrollInCourse(courseId: string, studentId: string = 'me'): boolean {
+  const course = courses.find(c => c.id === courseId);
+  if (!course) return false;
+
+  if (!course.enrolledStudents) {
+    course.enrolledStudents = [];
+  }
+  if (!course.studentProgress) {
+    course.studentProgress = {};
+  }
+
+  if (!course.enrolledStudents.includes(studentId)) {
+    course.enrolledStudents.push(studentId);
+    course.studentProgress[studentId] = {
+      completedLessons: [],
+      enrolledAt: new Date().toISOString(),
+      lastAccessed: new Date().toISOString(),
+      progress: 0,
+    };
+    return true;
+  }
+  return false;
+}
+
+// Обновить прогресс студента
+export function updateStudentProgress(courseId: string, studentId: string, lessonId: string): void {
+  const course = courses.find(c => c.id === courseId);
+  if (!course || !course.studentProgress) return;
+
+  const studentProgress = course.studentProgress[studentId];
+  if (!studentProgress) return;
+
+  if (!studentProgress.completedLessons.includes(lessonId)) {
+    studentProgress.completedLessons.push(lessonId);
+  }
+
+  // Вычисляем общий прогресс
+  const totalLessons = course.modules.reduce((sum, m) => sum + m.lessons.length, 0);
+  studentProgress.progress = totalLessons > 0 
+    ? Math.round((studentProgress.completedLessons.length / totalLessons) * 100)
+    : 0;
+  
+  studentProgress.lastAccessed = new Date().toISOString();
+}
+
+// Получить курсы пользователя (изучаемые)
+export function getUserEnrolledCourses(userId: string = 'me'): Course[] {
+  return courses.filter(c => c.enrolledStudents?.includes(userId));
+}
+
+// Получить курсы, созданные пользователем
+export function getUserCreatedCourses(userId: string = 'me'): Course[] {
+  return courses.filter(c => c.createdBy === 'Вы' || c.createdBy === userId);
+}
+
+// Получить статистику курса для учителя
+export function getCourseStats(courseId: string) {
+  const course = courses.find(c => c.id === courseId);
+  if (!course) return null;
+
+  const enrolled = course.enrolledStudents?.length || 0;
+  const active = Object.values(course.studentProgress || {}).filter(
+    (p: any) => {
+      const lastAccess = p.lastAccessed ? new Date(p.lastAccessed) : null;
+      if (!lastAccess) return false;
+      const daysSinceAccess = (Date.now() - lastAccess.getTime()) / (1000 * 60 * 60 * 24);
+      return daysSinceAccess <= 7; // Активны в последние 7 дней
+    }
+  ).length;
+  const completed = Object.values(course.studentProgress || {}).filter(
+    (p: any) => p.progress >= 100
+  ).length;
+  const avgProgress = enrolled > 0
+    ? Math.round(
+        Object.values(course.studentProgress || {}).reduce(
+          (sum: number, p: any) => sum + (p.progress || 0), 0
+        ) / enrolled
+      )
+    : 0;
+
+  return {
+    enrolled,
+    active,
+    completed,
+    avgProgress,
+    views: course.views || 0,
+  };
 }
 
 export function getSharedCourses(): SharedCourse[] {

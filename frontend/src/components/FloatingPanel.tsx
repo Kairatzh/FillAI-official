@@ -2,12 +2,11 @@
 
 import { motion, AnimatePresence } from 'framer-motion';
 import { useEffect, useRef, useState } from 'react';
-import { ChevronDown, ChevronUp, Edit2, Save, X, Trash2, Pin, PinOff, RotateCcw } from 'lucide-react';
+import { ChevronDown, ChevronUp, Edit2, Save, X, Trash2, Pin, PinOff, RotateCcw, Share2, Eye, Users as UsersIcon } from 'lucide-react';
 import { useUIStore } from '@/store/uiStore';
 import { useGraphStore } from '@/store/graphStore';
-import { getCategories } from '@/data/mockStore';
+import { getCategories, shareCourseToCommunity, getSharedCourses, Course } from '@/data/mockStore';
 import CoursePreview from './CoursePreview';
-import { Course } from '@/data/mockStore';
 
 export default function FloatingPanel() {
   const { panelVisible, panelPosition, hidePanel, setCurrentPage } = useUIStore();
@@ -282,17 +281,67 @@ export default function FloatingPanel() {
                       <span className="text-gray-400">Длительность:</span> {courseForNode.duration}
                     </div>
                   </div>
-                  <button
-                    onClick={() => {
-                      setSelectedCourse(courseForNode);
-                      hidePanel();
-                      // Переходим на страницу библиотеки при просмотре курса
-                      setCurrentPage('library');
-                    }}
-                    className="mt-4 w-full px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded-lg transition-colors text-gray-100 font-medium"
-                  >
-                    Просмотреть курс
-                  </button>
+                  <div className="mt-4 space-y-2">
+                    <button
+                      onClick={() => {
+                        setSelectedCourse(courseForNode);
+                        hidePanel();
+                      }}
+                      className="w-full px-4 py-2 bg-sky-600 hover:bg-sky-500 rounded-lg transition-colors text-white font-medium flex items-center justify-center gap-2"
+                    >
+                      <Eye size={16} />
+                      Просмотреть курс
+                    </button>
+                    {courseForNode.createdBy === 'Вы' || courseForNode.createdBy === 'Fill AI' ? (
+                      <>
+                        {getSharedCourses().some(sc => sc.courseId === courseForNode.id) ? (
+                          <button
+                            onClick={() => {
+                              setCurrentPage('community');
+                              hidePanel();
+                            }}
+                            className="w-full px-4 py-2 bg-green-600 hover:bg-green-500 rounded-lg transition-colors text-white font-medium flex items-center justify-center gap-2"
+                          >
+                            <Share2 size={16} />
+                            Управлять в сообществе
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => {
+                              shareCourseToCommunity(courseForNode);
+                              alert('Курс опубликован в сообществе!');
+                              setCurrentPage('community');
+                              hidePanel();
+                            }}
+                            className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg transition-colors text-white font-medium flex items-center justify-center gap-2"
+                          >
+                            <Share2 size={16} />
+                            Опубликовать в сообществе
+                          </button>
+                        )}
+                        <button
+                          onClick={() => {
+                            setCurrentPage('library');
+                            hidePanel();
+                          }}
+                          className="w-full px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded-lg transition-colors text-gray-100 font-medium flex items-center justify-center gap-2"
+                        >
+                          <UsersIcon size={16} />
+                          В библиотеку
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        onClick={() => {
+                          setCurrentPage('library');
+                          hidePanel();
+                        }}
+                        className="w-full px-4 py-2 bg-gray-600 hover:bg-gray-500 rounded-lg transition-colors text-gray-100 font-medium flex items-center justify-center gap-2"
+                      >
+                        Добавить в библиотеку
+                      </button>
+                    )}
+                  </div>
                 </>
               )}
               {isCategory && (

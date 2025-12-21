@@ -1,19 +1,21 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   BookOpen, Search, Filter, TrendingUp, Users as UsersIcon, Clock, Star, 
   Trophy, Award, Zap, ChevronDown, Check, X as CloseIcon, Plus, 
   Settings, BarChart3, Eye, EyeOff, Link as LinkIcon, Copy, 
   GraduationCap, Briefcase, Building, ShoppingCart, DollarSign,
-  UserCheck, UserX, FileText, Edit2, Trash2, Share2
+  UserCheck, UserX, FileText, Edit2, Trash2, Share2, MessageSquare,
+  Heart, Reply, Pin, Send, MoreVertical
 } from 'lucide-react';
-import { getCourses, Course, getSharedCourses, getCourseById, createUserCourse, getUsers, UserProfile } from '@/data/mockStore';
+import { getCourses, Course, getSharedCourses, getCourseById, createUserCourse, getUsers, UserProfile, shareCourseToCommunity, getCourseStats, getUserCreatedCourses, enrollInCourse, getUserEnrolledCourses } from '@/data/mockStore';
+import { getAllDiscussions, getCourseDiscussions, createDiscussion, addReplyToDiscussion, likeDiscussion, likeReply, Discussion, DiscussionReply } from '@/data/discussions';
 import CoursePreview from '@/components/CoursePreview';
 
 type Role = 'student' | 'teacher' | 'organization';
-type Tab = 'marketplace' | 'my-courses' | 'create' | 'analytics';
+type Tab = 'marketplace' | 'my-courses' | 'create' | 'analytics' | 'discussions';
 type PaidFilter = 'all' | 'free' | 'paid';
 type LevelFilter = 'all' | 'Beginner' | 'Intermediate' | 'Advanced';
 type SortOption = 'relevance' | 'newest' | 'price_low' | 'price_high';
@@ -31,9 +33,9 @@ export default function CommunityPage() {
       .filter((c): c is Course => Boolean(c) && (c.isPublic !== false));
   }, [shared]);
 
-  // Мои курсы (для учителей)
+  // Мои курсы (для учителей) - включая курсы из графа знаний
   const myCourses = useMemo(() => {
-    return allCourses.filter(c => c.createdBy === 'Вы' || c.createdBy === 'me');
+    return getUserCreatedCourses('me');
   }, [allCourses]);
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -77,6 +79,7 @@ export default function CommunityPage() {
   // Табы в зависимости от роли
   const tabs: { id: Tab; label: string; icon: any; roles: Role[] }[] = [
     { id: 'marketplace', label: 'Каталог курсов', icon: BookOpen, roles: ['student', 'teacher', 'organization'] },
+    { id: 'discussions', label: 'Обсуждения', icon: MessageSquare, roles: ['student', 'teacher', 'organization'] },
     { id: 'my-courses', label: 'Мои курсы', icon: FileText, roles: ['teacher', 'organization'] },
     { id: 'create', label: 'Создать курс', icon: Plus, roles: ['teacher', 'organization'] },
     { id: 'analytics', label: 'Аналитика', icon: BarChart3, roles: ['teacher', 'organization'] },
@@ -84,45 +87,65 @@ export default function CommunityPage() {
 
   const visibleTabs = tabs.filter(tab => tab.roles.includes(userRole));
 
+  // Автоматически переключаем на первый доступный таб при смене роли
+  React.useEffect(() => {
+    const availableTabIds = visibleTabs.map(tab => tab.id);
+    if (!availableTabIds.includes(activeTab)) {
+      setActiveTab(availableTabIds[0] || 'marketplace');
+    }
+  }, [userRole, visibleTabs, activeTab]);
+
   return (
     <div className="flex-1 overflow-auto bg-[#1a1a1a] text-white">
       <div className="max-w-7xl mx-auto">
-        {/* Header with Role Selector */}
+        {/* Header */}
         <div className="sticky top-0 z-30 bg-[#1a1a1a]/95 backdrop-blur-lg border-b border-[#3a3a3a]">
           <div className="px-6 py-4">
-            <div className="flex items-center justify-between mb-4">
-              <h1 className="text-3xl font-black">Сообщество</h1>
-              
-              {/* Role Selector */}
-              <div className="flex items-center gap-2 bg-[#252525] border border-[#3a3a3a] rounded-xl p-1">
+            <h1 className="text-3xl font-black">Сообщество</h1>
+          </div>
+        </div>
+
+        {/* Content based on active tab */}
+        <div className="p-6">
+          {/* Role Selector - перемещен в начало контента */}
+          <div className="mb-6 bg-[#252525] border border-[#3a3a3a] rounded-xl p-4">
+            <div className="flex items-center justify-between flex-wrap gap-4">
+              <div>
+                <h2 className="text-lg font-bold mb-1">Выберите вашу роль</h2>
+                <p className="text-sm text-gray-400">Выберите роль, чтобы увидеть соответствующие функции</p>
+              </div>
+              <div className="flex items-center gap-2 bg-[#1a1a1a] border border-[#3a3a3a] rounded-xl p-1">
                 <button
+                  type="button"
                   onClick={() => setUserRole('student')}
                   className={`px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-semibold transition-all ${
                     userRole === 'student' 
                       ? 'bg-blue-500 text-white' 
-                      : 'text-gray-400 hover:text-white'
+                      : 'text-gray-400 hover:text-white hover:bg-[#2d2d2d]'
                   }`}
                 >
                   <GraduationCap size={16} />
                   Ученик
                 </button>
                 <button
+                  type="button"
                   onClick={() => setUserRole('teacher')}
                   className={`px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-semibold transition-all ${
                     userRole === 'teacher' 
                       ? 'bg-purple-500 text-white' 
-                      : 'text-gray-400 hover:text-white'
+                      : 'text-gray-400 hover:text-white hover:bg-[#2d2d2d]'
                   }`}
                 >
                   <Briefcase size={16} />
                   Учитель
                 </button>
                 <button
+                  type="button"
                   onClick={() => setUserRole('organization')}
                   className={`px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-semibold transition-all ${
                     userRole === 'organization' 
                       ? 'bg-amber-500 text-white' 
-                      : 'text-gray-400 hover:text-white'
+                      : 'text-gray-400 hover:text-white hover:bg-[#2d2d2d]'
                   }`}
                 >
                   <Building size={16} />
@@ -130,36 +153,33 @@ export default function CommunityPage() {
                 </button>
               </div>
             </div>
-
-            {/* Tabs */}
-            <div className="flex items-center gap-2 overflow-x-auto">
-              {visibleTabs.map((tab) => {
-                const Icon = tab.icon;
-                return (
-                  <button
-                    key={tab.id}
-                    onClick={() => setActiveTab(tab.id)}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all whitespace-nowrap ${
-                      activeTab === tab.id
-                        ? 'bg-blue-500 text-white'
-                        : 'text-gray-400 hover:text-white hover:bg-[#252525]'
-                    }`}
-                  >
-                    <Icon size={18} />
-                    {tab.label}
-                  </button>
-                );
-              })}
-            </div>
           </div>
-        </div>
 
-        {/* Content based on active tab */}
-        <div className="p-6">
+          {/* Tabs */}
+          <div className="mb-6 flex items-center gap-2 overflow-x-auto pb-2 border-b border-[#3a3a3a]">
+            {visibleTabs.map((tab) => {
+              const Icon = tab.icon;
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all whitespace-nowrap ${
+                    activeTab === tab.id
+                      ? 'bg-blue-500 text-white'
+                      : 'text-gray-400 hover:text-white hover:bg-[#252525]'
+                  }`}
+                >
+                  <Icon size={18} />
+                  {tab.label}
+                </button>
+              );
+            })}
+          </div>
           <AnimatePresence mode="wait">
             {activeTab === 'marketplace' && (
               <MarketplaceView
-                key="marketplace"
+                key={`marketplace-${userRole}`}
                 courses={filteredCourses}
                 searchQuery={searchQuery}
                 setSearchQuery={setSearchQuery}
@@ -174,16 +194,24 @@ export default function CommunityPage() {
                 onCourseSelect={setSelectedCourse}
               />
             )}
+            {activeTab === 'discussions' && (
+              <DiscussionsView
+                key={`discussions-${userRole}`}
+                courses={marketplaceCourses}
+                onCourseSelect={setSelectedCourse}
+              />
+            )}
             {activeTab === 'my-courses' && (
               <MyCoursesView
-                key="my-courses"
+                key={`my-courses-${userRole}`}
                 courses={myCourses}
                 onCourseSelect={setSelectedCourse}
+                onCreateCourseClick={() => setActiveTab('create')}
               />
             )}
             {activeTab === 'create' && (
               <CreateCourseView
-                key="create"
+                key={`create-${userRole}`}
                 onCourseCreated={(course) => {
                   setSelectedCourse(course);
                   setActiveTab('my-courses');
@@ -192,7 +220,7 @@ export default function CommunityPage() {
             )}
             {activeTab === 'analytics' && (
               <AnalyticsView
-                key="analytics"
+                key={`analytics-${userRole}`}
                 courses={myCourses}
                 role={userRole}
               />
@@ -414,7 +442,7 @@ function MarketplaceView({
                     <div className="flex items-center gap-4">
                       <span className="flex items-center gap-1.5">
                         <UsersIcon size={14} />
-                        <span>245</span>
+                        <span>{course.enrolledStudents?.length || 0}</span>
                       </span>
                       <span className="flex items-center gap-1.5">
                         <Clock size={14} />
@@ -422,6 +450,24 @@ function MarketplaceView({
                       </span>
                     </div>
                   </div>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const enrolled = getUserEnrolledCourses('me');
+                      if (enrolled.some(c => c.id === course.id)) {
+                        alert('Вы уже записаны на этот курс!');
+                        onCourseSelect(course);
+                      } else {
+                        enrollInCourse(course.id, 'me');
+                        alert('Вы записались на курс! Теперь он доступен в вашей библиотеке.');
+                        onCourseSelect(course);
+                      }
+                    }}
+                    className="mt-4 w-full px-4 py-2 bg-sky-600 hover:bg-sky-500 rounded-lg text-white font-semibold transition-colors flex items-center justify-center gap-2"
+                  >
+                    <BookOpen size={16} />
+                    {getUserEnrolledCourses('me').some(c => c.id === course.id) ? 'Открыть курс' : 'Записаться'}
+                  </button>
                 </div>
               </motion.div>
             ))}
@@ -436,16 +482,30 @@ function MarketplaceView({
 function MyCoursesView({
   courses,
   onCourseSelect,
+  onCreateCourseClick,
 }: {
   courses: Course[];
   onCourseSelect: (course: Course) => void;
+  onCreateCourseClick: () => void;
 }) {
   const [editingCourse, setEditingCourse] = useState<Course | null>(null);
   const [showShareLink, setShowShareLink] = useState<string | null>(null);
+  const [selectedCourseForTracking, setSelectedCourseForTracking] = useState<Course | null>(null);
 
   const handleTogglePrivacy = (course: Course) => {
-    // Здесь будет логика переключения приватности
-    console.log('Toggle privacy for', course.id);
+    // Обновляем курс в localStorage или в store
+    const updatedCourse = {
+      ...course,
+      isPrivate: !course.isPrivate,
+      isPublic: course.isPrivate,
+      shareLink: !course.isPrivate ? course.shareLink : undefined,
+    };
+    // Здесь можно добавить сохранение в store или API
+    if (updatedCourse.isPublic && !updatedCourse.isPrivate) {
+      shareCourseToCommunity(updatedCourse);
+    }
+    // Перезагружаем страницу для обновления
+    window.location.reload();
   };
 
   const handleCopyLink = (link: string) => {
@@ -470,7 +530,10 @@ function MyCoursesView({
           <h2 className="text-3xl font-black mb-2">Мои курсы</h2>
           <p className="text-gray-400">Управляйте своими курсами, отслеживайте студентов и аналитику</p>
         </div>
-        <button className="px-6 py-3 bg-blue-500 hover:bg-blue-600 rounded-xl font-bold flex items-center gap-2">
+        <button 
+          onClick={onCreateCourseClick}
+          className="px-6 py-3 bg-blue-500 hover:bg-blue-600 rounded-xl font-bold flex items-center gap-2 transition-colors"
+        >
           <Plus size={20} />
           Создать курс
         </button>
@@ -505,19 +568,61 @@ function MyCoursesView({
               </div>
               <div className="p-6">
                 <h3 className="text-lg font-bold text-white mb-2 line-clamp-2">{course.title}</h3>
-                <div className="flex items-center gap-2 text-xs text-gray-400 mb-4">
-                  <UsersIcon size={14} />
-                  <span>{course.enrolledStudents?.length || 0} студентов</span>
-                  <span>•</span>
-                  <Clock size={14} />
-                  <span>{course.duration}</span>
-                </div>
+                {(() => {
+                  const stats = getCourseStats(course.id);
+                  return (
+                    <div className="space-y-2 mb-4">
+                      <div className="flex items-center gap-2 text-xs text-gray-400">
+                        <UsersIcon size={14} />
+                        <span>{stats?.enrolled || 0} записались</span>
+                        <span>•</span>
+                        <span className="text-green-400">{stats?.active || 0} активны</span>
+                        <span>•</span>
+                        <span className="text-blue-400">{stats?.completed || 0} завершили</span>
+                      </div>
+                      {stats && stats.enrolled > 0 && (
+                        <div className="space-y-1">
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="text-gray-400">Средний прогресс</span>
+                            <span className="text-sky-400 font-bold">{stats.avgProgress}%</span>
+                          </div>
+                          <div className="w-full h-1.5 bg-[#1a1a1a] rounded-full overflow-hidden">
+                            <div className="h-full bg-gradient-to-r from-sky-500 to-blue-600" style={{ width: `${stats.avgProgress}%` }} />
+                          </div>
+                        </div>
+                      )}
+                      <div className="flex items-center gap-2 text-xs text-gray-500">
+                        <Clock size={12} />
+                        <span>{course.duration}</span>
+                        {course.tags && course.tags.length > 0 && (
+                          <>
+                            <span>•</span>
+                            <div className="flex flex-wrap gap-1">
+                              {course.tags.slice(0, 2).map((tag, idx) => (
+                                <span key={idx} className="px-1.5 py-0.5 bg-[#1a1a1a] rounded text-[10px]">
+                                  #{tag}
+                                </span>
+                              ))}
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })()}
                 <div className="flex items-center gap-2 pt-4 border-t border-[#3a3a3a]">
                   <button
                     onClick={() => onCourseSelect(course)}
                     className="flex-1 px-4 py-2 bg-[#2d2d2d] hover:bg-[#353535] rounded-lg text-sm font-semibold transition-colors"
                   >
                     Открыть
+                  </button>
+                  <button
+                    onClick={() => setSelectedCourseForTracking(course)}
+                    className="p-2 bg-[#2d2d2d] hover:bg-[#353535] rounded-lg transition-colors"
+                    title="Трекинг студентов"
+                  >
+                    <BarChart3 size={16} className="text-gray-400" />
                   </button>
                   <button
                     onClick={() => handleTogglePrivacy(course)}
@@ -574,7 +679,117 @@ function MyCoursesView({
           }}
         />
       )}
+
+      {/* Student Tracking Modal */}
+      {selectedCourseForTracking && (
+        <StudentTrackingModal
+          course={selectedCourseForTracking}
+          onClose={() => setSelectedCourseForTracking(null)}
+        />
+      )}
     </motion.div>
+  );
+}
+
+// Student Tracking Modal
+function StudentTrackingModal({
+  course,
+  onClose,
+}: {
+  course: Course;
+  onClose: () => void;
+}) {
+  const stats = getCourseStats(course.id);
+  const students = course.studentProgress || {};
+
+  return (
+    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="bg-[#252525] border border-[#3a3a3a] rounded-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto"
+      >
+        <div className="sticky top-0 bg-[#252525] border-b border-[#3a3a3a] p-6 flex items-center justify-between">
+          <div>
+            <h3 className="text-2xl font-bold text-white">Трекинг студентов</h3>
+            <p className="text-sm text-gray-400 mt-1">{course.title}</p>
+          </div>
+          <button onClick={onClose} className="p-2 hover:bg-[#2d2d2d] rounded-lg">
+            <CloseIcon size={24} className="text-gray-400" />
+          </button>
+        </div>
+        <div className="p-6 space-y-6">
+          {/* Stats Overview */}
+          <div className="grid grid-cols-4 gap-4">
+            <div className="bg-[#1a1a1a] border border-[#3a3a3a] rounded-xl p-4">
+              <div className="text-2xl font-black text-white mb-1">{stats?.enrolled || 0}</div>
+              <div className="text-xs text-gray-400">Записались</div>
+            </div>
+            <div className="bg-[#1a1a1a] border border-[#3a3a3a] rounded-xl p-4">
+              <div className="text-2xl font-black text-green-400 mb-1">{stats?.active || 0}</div>
+              <div className="text-xs text-gray-400">Активны</div>
+            </div>
+            <div className="bg-[#1a1a1a] border border-[#3a3a3a] rounded-xl p-4">
+              <div className="text-2xl font-black text-blue-400 mb-1">{stats?.completed || 0}</div>
+              <div className="text-xs text-gray-400">Завершили</div>
+            </div>
+            <div className="bg-[#1a1a1a] border border-[#3a3a3a] rounded-xl p-4">
+              <div className="text-2xl font-black text-sky-400 mb-1">{stats?.avgProgress || 0}%</div>
+              <div className="text-xs text-gray-400">Средний прогресс</div>
+            </div>
+          </div>
+
+          {/* Students List */}
+          <div>
+            <h4 className="text-lg font-bold mb-4">Список студентов</h4>
+            {Object.keys(students).length === 0 ? (
+              <div className="text-center py-12 text-gray-400">
+                <UsersIcon size={48} className="mx-auto mb-4 opacity-50" />
+                <p>Пока нет записавшихся студентов</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {Object.entries(students).map(([studentId, progress]: [string, any]) => (
+                  <div key={studentId} className="bg-[#1a1a1a] border border-[#3a3a3a] rounded-xl p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-sky-500/20 flex items-center justify-center text-sky-400 font-bold border border-sky-500/30">
+                          {studentId === 'me' ? 'ВЫ' : studentId[0].toUpperCase()}
+                        </div>
+                        <div>
+                          <div className="font-semibold text-white">
+                            {studentId === 'me' ? 'Вы' : `Студент ${studentId}`}
+                          </div>
+                          <div className="text-xs text-gray-400">
+                            Записался: {new Date(progress.enrolledAt).toLocaleDateString('ru-RU')}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-lg font-black text-sky-400">{progress.progress}%</div>
+                        <div className="text-xs text-gray-400">Прогресс</div>
+                      </div>
+                    </div>
+                    <div className="w-full h-2 bg-[#252525] rounded-full overflow-hidden mb-2">
+                      <div 
+                        className="h-full bg-gradient-to-r from-sky-500 to-blue-600 transition-all"
+                        style={{ width: `${progress.progress}%` }}
+                      />
+                    </div>
+                    <div className="flex items-center justify-between text-xs text-gray-500">
+                      <span>Завершено уроков: {progress.completedLessons.length}</span>
+                      {progress.lastAccessed && (
+                        <span>Последний доступ: {new Date(progress.lastAccessed).toLocaleDateString('ru-RU')}</span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </motion.div>
+    </div>
   );
 }
 
@@ -832,8 +1047,14 @@ function AnalyticsView({
 
       {/* Course Analytics Table */}
       <div className="bg-[#252525] border border-[#3a3a3a] rounded-xl overflow-hidden">
-        <div className="p-6 border-b border-[#3a3a3a]">
+        <div className="p-6 border-b border-[#3a3a3a] flex items-center justify-between">
           <h3 className="text-xl font-bold">Детальная аналитика по курсам</h3>
+          {role === 'organization' && (
+            <button className="px-4 py-2 bg-blue-500 hover:bg-blue-600 rounded-lg text-sm font-semibold transition-colors flex items-center gap-2">
+              <FileText size={16} />
+              Экспорт данных
+            </button>
+          )}
         </div>
         <div className="overflow-x-auto">
           <table className="w-full">
@@ -846,41 +1067,105 @@ function AnalyticsView({
                 {role === 'teacher' && (
                   <th className="px-6 py-4 text-left text-sm font-bold text-gray-400 uppercase">Доход</th>
                 )}
+                {role === 'organization' && (
+                  <>
+                    <th className="px-6 py-4 text-left text-sm font-bold text-gray-400 uppercase">Группы</th>
+                    <th className="px-6 py-4 text-left text-sm font-bold text-gray-400 uppercase">Действия</th>
+                  </>
+                )}
               </tr>
             </thead>
             <tbody>
-              {courses.map((course) => (
-                <tr key={course.id} className="border-b border-[#3a3a3a] hover:bg-[#2d2d2d] transition-colors">
-                  <td className="px-6 py-4">
-                    <div className="font-semibold text-white">{course.title}</div>
-                    <div className="text-xs text-gray-500">{course.duration}</div>
-                  </td>
-                  <td className="px-6 py-4 text-gray-300">{course.enrolledStudents?.length || 0}</td>
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-2">
-                      <div className="w-24 h-2 bg-[#1a1a1a] rounded-full overflow-hidden">
-                        <div className="h-full bg-blue-500" style={{ width: '65%' }} />
-                      </div>
-                      <span className="text-sm text-gray-400">65%</span>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-1">
-                      <Star size={14} className="fill-yellow-400 text-yellow-400" />
-                      <span className="text-gray-300">4.9</span>
-                    </div>
-                  </td>
-                  {role === 'teacher' && (
-                    <td className="px-6 py-4 text-gray-300">
-                      {course.isPaid ? `${(course.price || 0) * (course.enrolledStudents?.length || 0)}₽` : '-'}
+              {courses.map((course) => {
+                const enrolledCount = course.enrolledStudents?.length || 0;
+                const avgProgress = enrolledCount > 0 ? Math.floor(Math.random() * 30 + 50) : 0;
+                return (
+                  <tr key={course.id} className="border-b border-[#3a3a3a] hover:bg-[#2d2d2d] transition-colors">
+                    <td className="px-6 py-4">
+                      <div className="font-semibold text-white">{course.title}</div>
+                      <div className="text-xs text-gray-500">{course.duration}</div>
                     </td>
-                  )}
-                </tr>
-              ))}
+                    <td className="px-6 py-4">
+                      <div className="text-gray-300 font-semibold">{enrolledCount}</div>
+                      {role === 'organization' && enrolledCount > 0 && (
+                        <button className="text-xs text-blue-400 hover:text-blue-300 mt-1">
+                          Просмотреть список
+                        </button>
+                      )}
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-2">
+                        <div className="w-24 h-2 bg-[#1a1a1a] rounded-full overflow-hidden">
+                          <div className="h-full bg-blue-500" style={{ width: `${avgProgress}%` }} />
+                        </div>
+                        <span className="text-sm text-gray-400">{avgProgress}%</span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-1">
+                        <Star size={14} className="fill-yellow-400 text-yellow-400" />
+                        <span className="text-gray-300">4.9</span>
+                      </div>
+                    </td>
+                    {role === 'teacher' && (
+                      <td className="px-6 py-4 text-gray-300">
+                        {course.isPaid ? `${(course.price || 0) * enrolledCount}₽` : '-'}
+                      </td>
+                    )}
+                    {role === 'organization' && (
+                      <>
+                        <td className="px-6 py-4 text-gray-300">
+                          <div className="flex items-center gap-2">
+                            <span>{Math.ceil(enrolledCount / 10)} групп</span>
+                            <button className="text-xs text-blue-400 hover:text-blue-300">
+                              Управлять
+                            </button>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-2">
+                            <button className="p-2 hover:bg-[#353535] rounded-lg transition-colors" title="Массовая рассылка">
+                              <Share2 size={16} className="text-gray-400" />
+                            </button>
+                            <button className="p-2 hover:bg-[#353535] rounded-lg transition-colors" title="Экспорт данных">
+                              <FileText size={16} className="text-gray-400" />
+                            </button>
+                          </div>
+                        </td>
+                      </>
+                    )}
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
       </div>
+
+      {/* Student Tracking (для организаций) */}
+      {role === 'organization' && (
+        <div className="bg-[#252525] border border-[#3a3a3a] rounded-xl p-6">
+          <h3 className="text-xl font-bold mb-4">Трекинг студентов</h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="bg-[#1a1a1a] border border-[#3a3a3a] rounded-lg p-4">
+              <div className="text-2xl font-black text-white mb-1">{totalStudents}</div>
+              <div className="text-sm text-gray-400">Активных студентов</div>
+            </div>
+            <div className="bg-[#1a1a1a] border border-[#3a3a3a] rounded-lg p-4">
+              <div className="text-2xl font-black text-white mb-1">
+                {Math.floor(totalStudents * 0.75)}
+              </div>
+              <div className="text-sm text-gray-400">Завершили курсы</div>
+            </div>
+            <div className="bg-[#1a1a1a] border border-[#3a3a3a] rounded-lg p-4">
+              <div className="text-2xl font-black text-white mb-1">
+                {Math.floor(totalStudents * 0.85)}
+              </div>
+              <div className="text-sm text-gray-400">Средний прогресс</div>
+            </div>
+          </div>
+        </div>
+      )}
     </motion.div>
   );
 }
@@ -926,7 +1211,7 @@ function CourseSettingsModal({
         <div className="sticky top-0 bg-[#252525] border-b border-[#3a3a3a] p-6 flex items-center justify-between">
           <h3 className="text-2xl font-bold">Настройки курса</h3>
           <button onClick={onClose} className="p-2 hover:bg-[#2d2d2d] rounded-lg">
-            <X size={24} />
+            <CloseIcon size={24} />
           </button>
         </div>
         <div className="p-6 space-y-6">
@@ -1004,5 +1289,316 @@ function CourseSettingsModal({
         </div>
       </motion.div>
     </div>
+  );
+}
+
+// Discussions View (для всех ролей)
+function DiscussionsView({
+  courses,
+  onCourseSelect,
+}: {
+  courses: Course[];
+  onCourseSelect: (course: Course) => void;
+}) {
+  const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
+  const [discussions, setDiscussions] = useState<Discussion[]>([]);
+  const [newDiscussionTitle, setNewDiscussionTitle] = useState('');
+  const [newDiscussionContent, setNewDiscussionContent] = useState('');
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [expandedDiscussion, setExpandedDiscussion] = useState<string | null>(null);
+  const [replyContent, setReplyContent] = useState<Record<string, string>>({});
+  const currentUserId = 'me';
+
+  const allDiscussions = getAllDiscussions();
+  const courseDiscussions = selectedCourseId ? getCourseDiscussions(selectedCourseId) : allDiscussions;
+
+  React.useEffect(() => {
+    setDiscussions(courseDiscussions);
+  }, [selectedCourseId, courseDiscussions]);
+
+  const handleCreateDiscussion = () => {
+    if (!newDiscussionTitle.trim() || !newDiscussionContent.trim() || !selectedCourseId) {
+      alert('Заполните все поля и выберите курс');
+      return;
+    }
+
+    const newDiscussion = createDiscussion({
+      courseId: selectedCourseId,
+      authorId: currentUserId,
+      authorName: 'Вы',
+      authorAvatar: 'ВЫ',
+      title: newDiscussionTitle.trim(),
+      content: newDiscussionContent.trim(),
+      tags: [],
+    });
+
+    setDiscussions([newDiscussion, ...discussions]);
+    setNewDiscussionTitle('');
+    setNewDiscussionContent('');
+    setShowCreateForm(false);
+  };
+
+  const handleAddReply = (discussionId: string) => {
+    const content = replyContent[discussionId]?.trim();
+    if (!content) return;
+
+    addReplyToDiscussion(discussionId, {
+      discussionId,
+      authorId: currentUserId,
+      authorName: 'Вы',
+      authorAvatar: 'ВЫ',
+      content,
+    });
+
+    setReplyContent({ ...replyContent, [discussionId]: '' });
+    const updated = selectedCourseId ? getCourseDiscussions(selectedCourseId) : getAllDiscussions();
+    setDiscussions(updated);
+  };
+
+  const handleLike = (discussionId: string) => {
+    likeDiscussion(discussionId, currentUserId);
+    const updated = selectedCourseId ? getCourseDiscussions(selectedCourseId) : getAllDiscussions();
+    setDiscussions(updated);
+  };
+
+  const handleLikeReply = (replyId: string) => {
+    likeReply(replyId, currentUserId);
+    const updated = selectedCourseId ? getCourseDiscussions(selectedCourseId) : getAllDiscussions();
+    setDiscussions(updated);
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -20 }}
+      className="space-y-6"
+    >
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-3xl font-black mb-2">Обсуждения</h2>
+          <p className="text-gray-400">Задавайте вопросы, делитесь опытом и обсуждайте курсы</p>
+        </div>
+        <button
+          onClick={() => setShowCreateForm(!showCreateForm)}
+          className="px-6 py-3 bg-blue-500 hover:bg-blue-600 rounded-xl font-bold flex items-center gap-2 transition-colors"
+        >
+          <Plus size={20} />
+          Создать обсуждение
+        </button>
+      </div>
+
+      <div className="bg-[#252525] border border-[#3a3a3a] rounded-xl p-4">
+        <label className="text-sm font-bold text-gray-400 uppercase mb-2 block">Фильтр по курсу</label>
+        <select
+          value={selectedCourseId || ''}
+          onChange={(e) => setSelectedCourseId(e.target.value || null)}
+          className="w-full px-4 py-2 rounded-lg bg-[#1a1a1a] border border-[#3a3a3a] text-white focus:outline-none focus:border-blue-500/50"
+        >
+          <option value="">Все курсы</option>
+          {courses.map(course => (
+            <option key={course.id} value={course.id}>{course.title}</option>
+          ))}
+        </select>
+      </div>
+
+      {showCreateForm && (
+        <motion.div
+          initial={{ opacity: 0, height: 0 }}
+          animate={{ opacity: 1, height: 'auto' }}
+          exit={{ opacity: 0, height: 0 }}
+          className="bg-[#252525] border border-[#3a3a3a] rounded-xl p-6 space-y-4"
+        >
+          <h3 className="text-xl font-bold">Создать новое обсуждение</h3>
+          <div>
+            <label className="text-sm font-bold text-gray-400 uppercase mb-2 block">Курс *</label>
+            <select
+              value={selectedCourseId || ''}
+              onChange={(e) => setSelectedCourseId(e.target.value || null)}
+              className="w-full px-4 py-2 rounded-lg bg-[#1a1a1a] border border-[#3a3a3a] text-white focus:outline-none focus:border-blue-500/50"
+            >
+              <option value="">Выберите курс</option>
+              {courses.map(course => (
+                <option key={course.id} value={course.id}>{course.title}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="text-sm font-bold text-gray-400 uppercase mb-2 block">Заголовок *</label>
+            <input
+              type="text"
+              value={newDiscussionTitle}
+              onChange={(e) => setNewDiscussionTitle(e.target.value)}
+              placeholder="О чем ваше обсуждение?"
+              className="w-full px-4 py-2 rounded-lg bg-[#1a1a1a] border border-[#3a3a3a] text-white focus:outline-none focus:border-blue-500/50"
+            />
+          </div>
+          <div>
+            <label className="text-sm font-bold text-gray-400 uppercase mb-2 block">Содержание *</label>
+            <textarea
+              value={newDiscussionContent}
+              onChange={(e) => setNewDiscussionContent(e.target.value)}
+              placeholder="Опишите ваш вопрос или тему для обсуждения..."
+              rows={4}
+              className="w-full px-4 py-2 rounded-lg bg-[#1a1a1a] border border-[#3a3a3a] text-white focus:outline-none focus:border-blue-500/50 resize-none"
+            />
+          </div>
+          <div className="flex gap-3">
+            <button
+              onClick={handleCreateDiscussion}
+              className="px-6 py-2 bg-blue-500 hover:bg-blue-600 rounded-lg font-bold transition-colors"
+            >
+              Создать
+            </button>
+            <button
+              onClick={() => setShowCreateForm(false)}
+              className="px-6 py-2 bg-[#2d2d2d] hover:bg-[#353535] rounded-lg font-semibold transition-colors"
+            >
+              Отмена
+            </button>
+          </div>
+        </motion.div>
+      )}
+
+      <div className="space-y-4">
+        {discussions.length === 0 ? (
+          <div className="py-20 text-center bg-[#252525] rounded-3xl border border-dashed border-[#3a3a3a]">
+            <MessageSquare size={64} className="mx-auto text-gray-600 mb-4" />
+            <div className="text-gray-400 text-lg mb-2">Нет обсуждений</div>
+            <p className="text-gray-500 text-sm">Создайте первое обсуждение, чтобы начать общение</p>
+          </div>
+        ) : (
+          discussions.map((discussion) => {
+            const course = courses.find(c => c.id === discussion.courseId);
+            const isLiked = discussion.likedBy.includes(currentUserId);
+            const isExpanded = expandedDiscussion === discussion.id;
+
+            return (
+              <div
+                key={discussion.id}
+                className="bg-[#252525] border border-[#3a3a3a] rounded-xl p-6 hover:border-blue-500/50 transition-all"
+              >
+                <div className="flex items-start gap-4">
+                  <div className="w-12 h-12 rounded-full bg-[#2d2d2d] flex items-center justify-center text-lg font-bold border border-[#3a3a3a]">
+                    {discussion.authorAvatar}
+                  </div>
+                  <div className="flex-1">
+                    <div className="flex items-center gap-3 mb-2">
+                      <h3 className="text-lg font-bold text-white">{discussion.title}</h3>
+                      {discussion.isPinned && <Pin size={16} className="text-yellow-400" />}
+                    </div>
+                    <div className="flex items-center gap-2 text-sm text-gray-400 mb-3">
+                      <span>{discussion.authorName}</span>
+                      {course && (
+                        <>
+                          <span>•</span>
+                          <button
+                            onClick={() => onCourseSelect(course)}
+                            className="text-blue-400 hover:text-blue-300 hover:underline"
+                          >
+                            {course.title}
+                          </button>
+                        </>
+                      )}
+                      <span>•</span>
+                      <span>{new Date(discussion.createdAt).toLocaleDateString('ru-RU')}</span>
+                    </div>
+                    <p className="text-gray-300 mb-4 whitespace-pre-wrap">{discussion.content}</p>
+                    
+                    {discussion.tags && discussion.tags.length > 0 && (
+                      <div className="flex flex-wrap gap-2 mb-4">
+                        {discussion.tags.map((tag, idx) => (
+                          <span
+                            key={idx}
+                            className="px-2 py-1 bg-blue-500/20 text-blue-400 text-xs rounded"
+                          >
+                            #{tag}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+
+                    <div className="flex items-center gap-4 pt-4 border-t border-[#3a3a3a]">
+                      <button
+                        onClick={() => handleLike(discussion.id)}
+                        className={`flex items-center gap-2 px-3 py-1 rounded-lg transition-colors ${
+                          isLiked
+                            ? 'bg-red-500/20 text-red-400'
+                            : 'bg-[#2d2d2d] text-gray-400 hover:bg-[#353535]'
+                        }`}
+                      >
+                        <Heart size={16} className={isLiked ? 'fill-current' : ''} />
+                        <span className="text-sm">{discussion.likes}</span>
+                      </button>
+                      <button
+                        onClick={() => setExpandedDiscussion(isExpanded ? null : discussion.id)}
+                        className="flex items-center gap-2 px-3 py-1 bg-[#2d2d2d] text-gray-400 hover:bg-[#353535] rounded-lg transition-colors"
+                      >
+                        <Reply size={16} />
+                        <span className="text-sm">{discussion.replies.length} ответов</span>
+                      </button>
+                    </div>
+
+                    {isExpanded && (
+                      <div className="mt-4 space-y-4 pl-4 border-l-2 border-[#3a3a3a]">
+                        {discussion.replies.map((reply) => {
+                          const isReplyLiked = reply.likedBy.includes(currentUserId);
+                          return (
+                            <div key={reply.id} className="flex items-start gap-3">
+                              <div className="w-8 h-8 rounded-full bg-[#2d2d2d] flex items-center justify-center text-sm font-bold border border-[#3a3a3a]">
+                                {reply.authorAvatar}
+                              </div>
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2 text-xs text-gray-400 mb-1">
+                                  <span>{reply.authorName}</span>
+                                  <span>•</span>
+                                  <span>{new Date(reply.createdAt).toLocaleDateString('ru-RU')}</span>
+                                </div>
+                                <p className="text-gray-300 text-sm mb-2">{reply.content}</p>
+                                <button
+                                  onClick={() => handleLikeReply(reply.id)}
+                                  className={`flex items-center gap-1 text-xs transition-colors ${
+                                    isReplyLiked ? 'text-red-400' : 'text-gray-500 hover:text-gray-300'
+                                  }`}
+                                >
+                                  <Heart size={12} className={isReplyLiked ? 'fill-current' : ''} />
+                                  <span>{reply.likes}</span>
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
+
+                        <div className="flex items-start gap-3">
+                          <div className="w-8 h-8 rounded-full bg-[#2d2d2d] flex items-center justify-center text-sm font-bold border border-[#3a3a3a]">
+                            ВЫ
+                          </div>
+                          <div className="flex-1">
+                            <textarea
+                              value={replyContent[discussion.id] || ''}
+                              onChange={(e) => setReplyContent({ ...replyContent, [discussion.id]: e.target.value })}
+                              placeholder="Напишите ответ..."
+                              rows={2}
+                              className="w-full px-3 py-2 rounded-lg bg-[#1a1a1a] border border-[#3a3a3a] text-white text-sm focus:outline-none focus:border-blue-500/50 resize-none"
+                            />
+                            <button
+                              onClick={() => handleAddReply(discussion.id)}
+                              className="mt-2 px-4 py-1.5 bg-blue-500 hover:bg-blue-600 rounded-lg text-sm font-semibold transition-colors flex items-center gap-2"
+                            >
+                              <Send size={14} />
+                              Отправить
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
+    </motion.div>
   );
 }

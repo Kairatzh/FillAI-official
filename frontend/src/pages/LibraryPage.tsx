@@ -2,12 +2,14 @@
 
 import { useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
-import { BookOpen, Clock, Target, BarChart, Search } from 'lucide-react';
-import { getCourses, getCategories, Course } from '@/data/mockStore';
+import { BookOpen, Clock, Target, BarChart, Search, Share2, Network } from 'lucide-react';
+import { getCourses, getCategories, Course, shareCourseToCommunity, getSharedCourses, enrollInCourse, getUserEnrolledCourses } from '@/data/mockStore';
+import { useUIStore } from '@/store/uiStore';
 import CoursePreview from '@/components/CoursePreview';
 import { calculateCourseProgress } from '@/utils/courseProgress';
 
 export default function LibraryPage() {
+  const { setCurrentPage } = useUIStore();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
