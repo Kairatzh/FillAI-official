@@ -10,6 +10,7 @@ import CommunityPage from '@/pages/CommunityPage';
 import LibraryPage from '@/pages/LibraryPage';
 import ProfilePage from '@/pages/ProfilePage';
 import LandingPage from '@/pages/LandingPage';
+import LoginPage from '@/pages/LoginPage';
 import TopBar from '@/components/TopBar';
 import { useUIStore } from '@/store/uiStore';
 
@@ -19,6 +20,11 @@ export default function Home() {
   // Показываем лендинг без сайдбара и топбара
   if (currentPage === 'landing') {
     return <LandingPage />;
+  }
+
+  // Показываем страницу логина
+  if (currentPage === 'login') {
+    return <LoginPage />;
   }
 
   return (

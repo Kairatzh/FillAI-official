@@ -13,6 +13,14 @@ export interface CourseSettings {
   learning_objectives?: string[];
   custom_category_name?: string;
   additional_requirements?: string;
+  reference_files?: ReferenceFile[];
+}
+
+export interface ReferenceFile {
+  name: string;
+  content: string;
+  size_kb?: number;
+  type?: string;
 }
 
 export interface BackendPracticeExercise {
@@ -66,8 +74,26 @@ export interface BackendCourse {
   learning_objectives: string[];
 }
 
+export interface CourseStructureLesson {
+  title: string;
+  content?: string;
+  duration_minutes?: number;
+}
+
+export interface CourseStructureModule {
+  title: string;
+  description?: string;
+  lessons: CourseStructureLesson[];
+}
+
+export interface CourseStructurePlan {
+  modules: CourseStructureModule[];
+}
+
 export interface CourseGenerationRequest {
   settings: CourseSettings;
+  structure_override?: CourseStructurePlan;
+  reference_files?: ReferenceFile[];
 }
 
 export interface CourseGenerationResponse {
@@ -75,6 +101,12 @@ export interface CourseGenerationResponse {
   course?: BackendCourse;
   error?: string;
   message?: string;
+}
+
+export interface CourseStructureResponse {
+  success: boolean;
+  structure?: CourseStructurePlan;
+  error?: string;
 }
 
 // ----- AI helpers -----
@@ -194,6 +226,22 @@ export function transformFrontendSettingsToBackend(
     learning_objectives: learningObjectives.length > 0 ? learningObjectives : undefined,
     custom_category_name: frontendSettings.customCategory || undefined,
     additional_requirements: frontendSettings.preferences || undefined,
+    reference_files: frontendSettings.referenceFiles || undefined,
+  };
+}
+
+function sanitizeStructureForBackend(structure?: CourseStructurePlan): CourseStructurePlan | undefined {
+  if (!structure) return undefined;
+  return {
+    modules: structure.modules.map((module) => ({
+      title: module.title,
+      description: module.description,
+      lessons: (module.lessons || []).map((lesson) => ({
+        title: lesson.title,
+        content: lesson.content,
+        duration_minutes: lesson.duration_minutes ?? 30,
+      })),
+    })),
   };
 }
 
@@ -262,10 +310,12 @@ export function transformBackendCourseToFrontend(
  */
 export async function generateCourse(
   topic: string,
-  frontendSettings: any
+  frontendSettings: any,
+  structureOverride?: CourseStructurePlan
 ): Promise<any> {
   try {
     const backendSettings = transformFrontendSettingsToBackend(topic, frontendSettings);
+    const structurePayload = sanitizeStructureForBackend(structureOverride);
     
     const response = await fetch(`${API_BASE_URL}/api/courses/generate`, {
       method: 'POST',
@@ -274,6 +324,8 @@ export async function generateCourse(
       },
       body: JSON.stringify({
         settings: backendSettings,
+        structure_override: structurePayload,
+        reference_files: backendSettings.reference_files,
       }),
     });
 
@@ -294,6 +346,40 @@ export async function generateCourse(
     console.error('Error generating course:', error);
     throw error;
   }
+}
+
+/**
+ * Получить предварительную структуру курса для редактирования
+ */
+export async function previewCourseStructure(
+  topic: string,
+  frontendSettings: any
+): Promise<CourseStructurePlan> {
+  const backendSettings = transformFrontendSettingsToBackend(topic, frontendSettings);
+
+  const response = await fetch(`${API_BASE_URL}/api/courses/structure/preview`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      settings: backendSettings,
+      reference_files: backendSettings.reference_files,
+    }),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+    throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+  }
+
+  const data: CourseStructureResponse = await response.json();
+
+  if (!data.success || !data.structure) {
+    throw new Error(data.error || 'Не удалось получить структуру курса');
+  }
+
+  return data.structure;
 }
 
 export async function gradeExercise(

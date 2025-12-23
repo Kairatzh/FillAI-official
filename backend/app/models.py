@@ -9,6 +9,14 @@ class CourseDifficulty(str, Enum):
     ADVANCED = "advanced"
 
 
+class ReferenceFile(BaseModel):
+    """Файл/материал для генерации"""
+    name: str
+    content: str = Field(..., description="Текстовое содержимое файла или выдержка")
+    size_kb: Optional[int] = Field(None, description="Размер файла (кб)")
+    type: Optional[str] = Field(None, description="MIME тип, если известен")
+
+
 class CourseSettings(BaseModel):
     """Настройки курса от фронтенда"""
     title: str = Field(..., description="Название курса")
@@ -19,6 +27,9 @@ class CourseSettings(BaseModel):
     learning_objectives: List[str] = Field(default_factory=list, description="Цели обучения")
     custom_category_name: Optional[str] = Field(None, description="Пользовательское название категории")
     additional_requirements: Optional[str] = Field(None, description="Дополнительные требования")
+    reference_files: Optional[List[ReferenceFile]] = Field(
+        default=None, description="Дополнительные файлы/материалы для генерации"
+    )
 
 
 class VideoMaterial(BaseModel):
@@ -85,9 +96,38 @@ class Course(BaseModel):
     learning_objectives: List[str] = Field(default_factory=list)
 
 
+class LessonPlan(BaseModel):
+    """Черновик урока (до детализации)"""
+    title: str
+    content: Optional[str] = None
+    duration_minutes: int = Field(30, description="Оценка длительности урока")
+
+
+class ModulePlan(BaseModel):
+    """Черновик модуля для предварительного просмотра"""
+    title: str
+    description: Optional[str] = None
+    lessons: List[LessonPlan] = Field(default_factory=list)
+
+
+class CourseStructurePlan(BaseModel):
+    """Структура курса до финальной генерации"""
+    modules: List[ModulePlan] = Field(default_factory=list)
+
+    class Config:
+        extra = "allow"  # позволяем лишние поля (например, id с фронта)
+
+
 class CourseGenerationRequest(BaseModel):
     """Запрос на генерацию курса"""
     settings: CourseSettings
+    structure_override: Optional[CourseStructurePlan] = Field(
+        None,
+        description="Опциональная предварительно отредактированная структура курса",
+    )
+    reference_files: Optional[List[ReferenceFile]] = Field(
+        default=None, description="Дополнительные файлы для учета при генерации"
+    )
 
 
 class CourseGenerationResponse(BaseModel):
@@ -179,4 +219,11 @@ class ModuleTestResponse(BaseModel):
     """Ответ с тестом для модуля"""
     success: bool
     test: Optional[ModuleTest] = None
+    error: Optional[str] = None
+
+
+class CourseStructureResponse(BaseModel):
+    """Ответ с предварительной структурой курса"""
+    success: bool
+    structure: Optional[CourseStructurePlan] = None
     error: Optional[str] = None

@@ -2,14 +2,16 @@
 
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { HelpCircle, CreditCard, Info, X, ChevronDown, Brain } from 'lucide-react';
+import { HelpCircle, CreditCard, Info, X, ChevronDown, Brain, LogIn, LogOut, User } from 'lucide-react';
 import { useUIStore } from '@/store/uiStore';
+import { useAuth } from '@/contexts/AuthContext';
 
 export default function TopBar() {
   const [showFAQ, setShowFAQ] = useState(false);
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
   const sidebarOpen = useUIStore((state) => state.sidebarOpen);
   const { setCurrentPage, currentPage } = useUIStore();
+  const { isAuthenticated, user, logout } = useAuth();
 
   const faqItems = [
     {
@@ -47,6 +49,37 @@ export default function TopBar() {
           </motion.button>
 
           <div className="flex items-center gap-2">
+            {/* Auth buttons */}
+            {isAuthenticated ? (
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setCurrentPage('profile')}
+                  className="flex items-center gap-2 px-4 py-2 text-gray-300 hover:text-white hover:bg-[#2d2d2d] rounded-lg transition-colors"
+                >
+                  <User size={18} />
+                  <span>{user?.username || 'Профиль'}</span>
+                </button>
+                <button
+                  onClick={() => {
+                    logout();
+                    setCurrentPage('login');
+                  }}
+                  className="flex items-center gap-2 px-4 py-2 text-gray-300 hover:text-white hover:bg-[#2d2d2d] rounded-lg transition-colors"
+                >
+                  <LogOut size={18} />
+                  <span>Выйти</span>
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => setCurrentPage('login')}
+                className="flex items-center gap-2 px-4 py-2 bg-sky-600 hover:bg-sky-500 text-white rounded-lg transition-colors"
+              >
+                <LogIn size={18} />
+                <span>Войти</span>
+              </button>
+            )}
+
             {/* FAQ */}
             <div className="relative">
               <button

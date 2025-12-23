@@ -14,11 +14,14 @@ from app.models import (
     ModuleTestResponse,
     ModuleTest,
     TestQuestion,
+    CourseStructureResponse,
 )
 from app.agents.course_coordinator import CourseCoordinator
 from app.agents.grading_agent import ExerciseGradingAgent
 from app.agents.assistant_agent import PersonalAssistantAgent
 from app.agents.test_generator_agent import TestGeneratorAgent
+from app.routers import auth
+from app.database import engine, Base
 import os
 from dotenv import load_dotenv
 
@@ -26,10 +29,13 @@ from dotenv import load_dotenv
 load_dotenv()
 
 app = FastAPI(
-    title="Course Generation API",
-    description="API для генерации образовательных курсов с использованием AI",
+    title="Fill AI API",
+    description="API для образовательной платформы Fill AI с использованием AI",
     version="1.0.0"
 )
+
+# Create database tables (only in development, use migrations in production)
+# Base.metadata.create_all(bind=engine)
 
 # Настройка CORS для работы с фронтендом
 app.add_middleware(
@@ -45,6 +51,12 @@ coordinator = CourseCoordinator()
 grading_agent = ExerciseGradingAgent()
 assistant_agent = PersonalAssistantAgent()
 test_generator = TestGeneratorAgent()
+
+# Include routers
+app.include_router(auth.router)
+
+# Include routers
+app.include_router(auth.router)
 
 
 @app.get("/")
@@ -88,8 +100,15 @@ async def generate_course(request: CourseGenerationRequest):
         model_name = os.getenv("OPENAI_MODEL", "gpt-3.5-turbo")
         print(f"Используется модель: {model_name}")
         
+        # Пробрасываем дополнительные файлы в настройки
+        if request.reference_files and not request.settings.reference_files:
+            request.settings.reference_files = request.reference_files
+
         # Генерируем курс используя мультиагентную систему
-        course = await coordinator.generate_course(request.settings)
+        course = await coordinator.generate_course(
+            settings=request.settings,
+            structure_override=request.structure_override,
+        )
         
         return CourseGenerationResponse(
             success=True,
@@ -239,6 +258,41 @@ async def generate_module_test(request: ModuleTestRequest):
             error=f"Ошибка при генерации теста: {error_msg}"
         )
 
+
+@app.post("/api/courses/structure/preview", response_model=CourseStructureResponse)
+async def preview_course_structure(request: CourseGenerationRequest):
+    """
+    Генерирует предварительную структуру курса (модули и уроки) без детализации.
+    Преподаватель может отредактировать её перед финальной генерацией.
+    """
+    try:
+        api_key = os.getenv("OPENAI_API_KEY")
+        if not api_key:
+            return CourseStructureResponse(
+                success=False,
+                error="OPENAI_API_KEY не установлен в переменных окружения"
+            )
+
+        # Используем только шаг построения структуры
+        # Пробрасываем дополнительные файлы в настройки
+        if request.reference_files and not request.settings.reference_files:
+            request.settings.reference_files = request.reference_files
+
+        structure = await coordinator.structure_agent.generate_structure(
+            request.settings.model_dump()
+        )
+
+        return CourseStructureResponse(
+            success=True,
+            structure=structure
+        )
+    except Exception as e:
+        error_msg = str(e)
+        print(f"Ошибка при генерации структуры курса: {error_msg}")
+        return CourseStructureResponse(
+            success=False,
+            error=f"Ошибка при генерации структуры: {error_msg}"
+        )
 
 if __name__ == "__main__":
     import uvicorn

@@ -9,7 +9,7 @@ import {
   ChevronDown, ChevronUp, Edit3, Save, Trash2, Plus, Code, Brain, Puzzle, 
   Image as ImageIcon, Video, Music, Layers, Lightbulb, HelpCircle
 } from 'lucide-react';
-import { Course, PracticeExercise, VideoMaterial, AdditionalMaterial, shareCourseToCommunity, getSharedCourses, TermExplanation, Lesson } from '@/data/mockStore';
+import { Course, PracticeExercise, VideoMaterial, AdditionalMaterial, shareCourseToCommunity, getSharedCourses, TermExplanation, Lesson, enrollInCourse, getUserEnrolledCourses, findUserByNameOrId } from '@/data/mockStore';
 import { gradeExercise } from '@/services/api';
 import JasperMentor from './JasperMentor';
 import InteractiveExample from './InteractiveExample';
@@ -26,6 +26,10 @@ export default function CoursePreview({ course, onClose }: CoursePreviewProps) {
 
   const alreadyShared = getSharedCourses().some((sc) => sc.courseId === course.id);
   const isPublic = course.isPublic !== false;
+  const isOwner = course.createdBy === 'Вы' || course.createdBy === 'me';
+  const creator = findUserByNameOrId(course.createdBy || '')?.[0];
+  const [introOpen, setIntroOpen] = useState(true);
+  const [saved, setSaved] = useState(() => getUserEnrolledCourses('me').some(c => c.id === course.id));
 
   // Состояние навигации: текущий модуль и урок
   const [activeModuleIdx, setActiveModuleIdx] = useState(0);
@@ -244,6 +248,13 @@ export default function CoursePreview({ course, onClose }: CoursePreviewProps) {
     } catch (e) {
       console.error('Error sharing course to community', e);
     }
+  };
+
+  const handleSaveToLibrary = () => {
+    if (saved) return;
+    enrollInCourse(course.id, 'me');
+    setSaved(true);
+    alert('Курс сохранён в вашей библиотеке.');
   };
 
   const handleCheckExercise = async (exerciseIdx: number) => {
@@ -500,7 +511,7 @@ export default function CoursePreview({ course, onClose }: CoursePreviewProps) {
 
   return (
     <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-0">
-      <div className="bg-[#252525] w-full h-full overflow-hidden flex flex-col">
+      <div className="bg-[#252525] w-full h-full overflow-hidden flex flex-col relative">
         {/* Header */}
         <div className="sticky top-0 bg-[#252525] border-b border-[#3a3a3a] p-6 flex items-center justify-between gap-4 z-20 shadow-lg">
           <div className="flex items-center gap-4 flex-1">
@@ -538,43 +549,60 @@ export default function CoursePreview({ course, onClose }: CoursePreviewProps) {
           </div>
 
           <div className="flex items-center gap-2">
-            <button
-              onClick={handleExport}
-              className="p-2 hover:bg-[#2d2d2d] rounded-lg transition-colors"
-              title="Экспорт курса"
-            >
-              <Download size={18} className="text-gray-400" />
-            </button>
-            <button
-              onClick={handlePrint}
-              className="p-2 hover:bg-[#2d2d2d] rounded-lg transition-colors"
-              title="Печать"
-            >
-              <Printer size={18} className="text-gray-400" />
-            </button>
-            <button
-              onClick={handleToggleVisibility}
-              className={`px-3 py-2 rounded-lg flex items-center gap-2 text-xs font-medium transition-colors border ${
-                isPublic
-                  ? 'bg-green-900/30 border-green-600/60 text-green-200'
-                  : 'bg-[#1f1f1f] border-[#3a3a3a] text-gray-300'
-              }`}
-            >
-              <Eye size={16} />
-              {isPublic ? 'Публичный' : 'Скрытый'}
-            </button>
-            <button
-              onClick={handleShare}
-              disabled={alreadyShared}
-              className={`px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium transition-colors border ${
-                alreadyShared
-                  ? 'bg-[#1f1f1f] border-[#3a3a3a] text-gray-400 cursor-default'
-                  : 'bg-[#2d2d2d] border-[#3a3a3a] text-white hover:bg-[#353535]'
-              }`}
-            >
-              <Share2 size={18} />
-              {alreadyShared ? 'В коммьюнити' : 'Поделиться'}
-            </button>
+            {isOwner && (
+              <>
+                <button
+                  onClick={handleExport}
+                  className="p-2 hover:bg-[#2d2d2d] rounded-lg transition-colors"
+                  title="Экспорт курса"
+                >
+                  <Download size={18} className="text-gray-400" />
+                </button>
+                <button
+                  onClick={handlePrint}
+                  className="p-2 hover:bg-[#2d2d2d] rounded-lg transition-colors"
+                  title="Печать"
+                >
+                  <Printer size={18} className="text-gray-400" />
+                </button>
+                <button
+                  onClick={handleToggleVisibility}
+                  className={`px-3 py-2 rounded-lg flex items-center gap-2 text-xs font-medium transition-colors border ${
+                    isPublic
+                      ? 'bg-green-900/30 border-green-600/60 text-green-200'
+                      : 'bg-[#1f1f1f] border-[#3a3a3a] text-gray-300'
+                  }`}
+                >
+                  <Eye size={16} />
+                  {isPublic ? 'Публичный' : 'Скрытый'}
+                </button>
+                <button
+                  onClick={handleShare}
+                  disabled={alreadyShared}
+                  className={`px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium transition-colors border ${
+                    alreadyShared
+                      ? 'bg-[#1f1f1f] border-[#3a3a3a] text-gray-400 cursor-default'
+                      : 'bg-[#2d2d2d] border-[#3a3a3a] text-white hover:bg-[#353535]'
+                  }`}
+                >
+                  <Share2 size={18} />
+                  {alreadyShared ? 'В коммьюнити' : 'Поделиться'}
+                </button>
+              </>
+            )}
+            {!isOwner && (
+              <button
+                onClick={handleSaveToLibrary}
+                className={`px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium transition-colors border ${
+                  saved
+                    ? 'bg-green-900/30 border-green-600/60 text-green-200'
+                    : 'bg-[#2d2d2d] border-[#3a3a3a] text-white hover:bg-[#353535]'
+                }`}
+              >
+                <Bookmark size={18} />
+                {saved ? 'В библиотеке' : 'Сохранить'}
+              </button>
+            )}
             <button
               onClick={onClose}
               className="p-2 hover:bg-[#2d2d2d] rounded-lg transition-colors"
@@ -585,6 +613,72 @@ export default function CoursePreview({ course, onClose }: CoursePreviewProps) {
         </div>
 
         <div className="flex flex-1 overflow-hidden">
+          {introOpen && (
+            <div className="absolute inset-0 z-30 bg-gradient-to-b from-[#0f1115]/95 via-[#0f1115]/80 to-[#0f1115]/95 backdrop-blur flex items-center justify-center px-6">
+              <div className="max-w-4xl w-full bg-[#1f1f1f] border border-[#2f2f2f] rounded-2xl shadow-2xl overflow-hidden">
+                <div className="p-6 md:p-8 space-y-6">
+                  <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-14 h-14 rounded-full bg-sky-500/15 border border-sky-500/40 flex items-center justify-center text-sky-300 text-lg font-bold">
+                        {creator?.avatar || (course.createdBy ? course.createdBy.slice(0, 2).toUpperCase() : 'ИИ')}
+                      </div>
+                      <div>
+                        <div className="text-xs uppercase tracking-widest text-gray-500">Создатель курса</div>
+                        <div className="text-lg font-bold text-white">{creator?.name || course.createdBy || 'Учитель'}</div>
+                        {creator?.bio && <div className="text-sm text-gray-400">{creator.bio}</div>}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <div className="px-3 py-2 rounded-lg bg-[#252525] border border-[#3a3a3a] text-xs text-gray-300 flex items-center gap-2">
+                        <BookOpen size={14} />
+                        {course.level}
+                      </div>
+                      <div className="px-3 py-2 rounded-lg bg-[#252525] border border-[#3a3a3a] text-xs text-gray-300 flex items-center gap-2">
+                        <Clock size={14} />
+                        {course.duration}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    <h2 className="text-2xl font-bold text-white">{course.title}</h2>
+                    <p className="text-gray-300 leading-relaxed">{course.description}</p>
+                  </div>
+
+                  <div className="grid md:grid-cols-2 gap-4">
+                    <div className="bg-[#252525] border border-[#2f2f2f] rounded-xl p-4">
+                      <div className="text-xs text-gray-500 uppercase tracking-widest mb-2">Цель обучения</div>
+                      <div className="text-sm text-gray-200">{course.goal || 'Повышение компетенций в выбранной теме'}</div>
+                    </div>
+                    <div className="bg-[#252525] border border-[#2f2f2f] rounded-xl p-4">
+                      <div className="text-xs text-gray-500 uppercase tracking-widest mb-2">Категория</div>
+                      <div className="text-sm text-gray-200">{course.category}</div>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap gap-3">
+                    <button
+                      onClick={() => {
+                        handleSaveToLibrary();
+                        setIntroOpen(false);
+                      }}
+                      className="px-5 py-3 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-semibold flex items-center gap-2 transition-all"
+                    >
+                      <Bookmark size={18} />
+                      {saved ? 'Уже в библиотеке' : 'Сохранить в библиотеку'}
+                    </button>
+                    <button
+                      onClick={() => setIntroOpen(false)}
+                      className="px-5 py-3 rounded-xl bg-white text-black font-semibold flex items-center gap-2 transition-all hover:shadow-lg"
+                    >
+                      <Play size={18} />
+                      Начать курс
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
           {/* Sidebar Navigation */}
           <AnimatePresence>
             {sidebarOpen && (

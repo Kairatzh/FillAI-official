@@ -1,7 +1,8 @@
 'use client';
 
-import { X } from 'lucide-react';
+import { X, Upload, Info } from 'lucide-react';
 import { useState } from 'react';
+import { ReferenceFile } from '@/services/api';
 
 interface CourseSettingsModalProps {
   isOpen: boolean;
@@ -19,10 +20,39 @@ export default function CourseSettingsModal({ isOpen, onClose, onSubmit, topic }
     intensity: 'Средняя',
     goal: '',
     category: '', // Теперь пользователь вводит название группы
-    customCategory: ''
+    customCategory: '',
+    referenceFiles: [] as ReferenceFile[],
   });
+  const [uploadHint, setUploadHint] = useState<string | null>(null);
 
   if (!isOpen) return null;
+
+  const handleFiles = async (files: FileList | null) => {
+    if (!files) return;
+    const readers: Promise<ReferenceFile>[] = Array.from(files).map(
+      (file) =>
+        new Promise((resolve) => {
+          const reader = new FileReader();
+          reader.onload = () => {
+            resolve({
+              name: file.name,
+              content: (reader.result as string)?.slice(0, 5000) || '',
+              size_kb: Math.round(file.size / 1024),
+              type: file.type,
+            });
+          };
+          reader.readAsText(file);
+        })
+    );
+
+    const loaded = await Promise.all(readers);
+    setSettings((prev) => ({
+      ...prev,
+      referenceFiles: [...prev.referenceFiles, ...loaded],
+    }));
+    setUploadHint(`${loaded.length} файл(а) добавлено`);
+    setTimeout(() => setUploadHint(null), 2000);
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -44,7 +74,7 @@ export default function CourseSettingsModal({ isOpen, onClose, onSubmit, topic }
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
-          <div>
+          <div className="bg-[#1c1c1c] border border-[#333] rounded-xl p-4">
             <label className="block text-sm font-medium text-gray-300 mb-2">
               Тема курса
             </label>
@@ -56,7 +86,8 @@ export default function CourseSettingsModal({ isOpen, onClose, onSubmit, topic }
             />
           </div>
 
-          <div>
+          <div className="grid md:grid-cols-2 gap-4">
+            <div>
             <label className="block text-sm font-medium text-gray-300 mb-2">
               Формат курса
             </label>
@@ -70,8 +101,7 @@ export default function CourseSettingsModal({ isOpen, onClose, onSubmit, topic }
               <option value="Смешанный">Смешанный</option>
             </select>
           </div>
-
-          <div>
+            <div>
             <label className="block text-sm font-medium text-gray-300 mb-2">
               Уровень сложности
             </label>
@@ -86,8 +116,10 @@ export default function CourseSettingsModal({ isOpen, onClose, onSubmit, topic }
               <option value="Экспертный">Экспертный</option>
             </select>
           </div>
+          </div>
 
-          <div>
+          <div className="grid md:grid-cols-2 gap-4">
+            <div>
             <label className="block text-sm font-medium text-gray-300 mb-2">
               Длительность
             </label>
@@ -102,8 +134,7 @@ export default function CourseSettingsModal({ isOpen, onClose, onSubmit, topic }
               <option value="8 недель">8 недель</option>
             </select>
           </div>
-
-          <div>
+            <div>
             <label className="block text-sm font-medium text-gray-300 mb-2">
               Интенсивность
             </label>
@@ -117,8 +148,10 @@ export default function CourseSettingsModal({ isOpen, onClose, onSubmit, topic }
               <option value="Высокая">Высокая</option>
             </select>
           </div>
+          </div>
 
-          <div>
+          <div className="grid md:grid-cols-2 gap-4">
+            <div>
             <label className="block text-sm font-medium text-gray-300 mb-2">
               Предпочтения
             </label>
@@ -130,8 +163,7 @@ export default function CourseSettingsModal({ isOpen, onClose, onSubmit, topic }
               className="w-full px-4 py-2 bg-[#2d2d2d] border border-[#3a3a3a] rounded-lg text-gray-100 placeholder-gray-500"
             />
           </div>
-
-          <div>
+            <div>
             <label className="block text-sm font-medium text-gray-300 mb-2">
               Цель обучения
             </label>
@@ -143,8 +175,9 @@ export default function CourseSettingsModal({ isOpen, onClose, onSubmit, topic }
               className="w-full px-4 py-2 bg-[#2d2d2d] border border-[#3a3a3a] rounded-lg text-gray-100 placeholder-gray-500"
             />
           </div>
+          </div>
 
-          <div>
+          <div className="bg-[#1c1c1c] border border-[#333] rounded-xl p-4 space-y-3">
             <label className="block text-sm font-medium text-gray-300 mb-2">
               Название группы/категории
             </label>
@@ -156,6 +189,45 @@ export default function CourseSettingsModal({ isOpen, onClose, onSubmit, topic }
               className="w-full px-4 py-2 bg-[#2d2d2d] border border-[#3a3a3a] rounded-lg text-gray-100 placeholder-gray-500"
             />
             <p className="text-xs text-gray-500 mt-1">Создайте или укажите название группы для вашего курса</p>
+          </div>
+
+          <div className="bg-[#1c1c1c] border border-[#333] rounded-xl p-4 space-y-3">
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-200 flex items-center gap-2">
+                  <Upload size={16} /> Добавить файлы/материалы для ИИ
+                </p>
+                <p className="text-xs text-gray-500">
+                  Передайте PDF/TXT/MD. Мы берём первые 5k символов для подсказки модели.
+                </p>
+              </div>
+              {uploadHint && <span className="text-xs text-green-400">{uploadHint}</span>}
+            </div>
+            <label className="flex flex-col items-center justify-center w-full p-4 border border-dashed border-[#3a3a3a] rounded-lg text-gray-300 hover:border-sky-500 hover:text-sky-200 cursor-pointer transition">
+              <input
+                type="file"
+                accept=".txt,.md,.pdf,.doc,.docx,.rtf"
+                multiple
+                className="hidden"
+                onChange={(e) => handleFiles(e.target.files)}
+              />
+              <span className="text-sm">Перетащите или выберите файлы</span>
+            </label>
+            {settings.referenceFiles.length > 0 && (
+              <div className="space-y-2">
+                <div className="text-xs uppercase tracking-wide text-gray-500">Прикреплено</div>
+                <div className="divide-y divide-[#2f2f2f] border border-[#2f2f2f] rounded-lg">
+                  {settings.referenceFiles.map((file) => (
+                    <div key={file.name} className="flex items-center justify-between px-3 py-2 text-sm text-gray-200">
+                      <span className="truncate">{file.name}</span>
+                      <span className="text-xs text-gray-500">
+                        {file.size_kb ? `${file.size_kb} КБ` : ''} {file.type ? `· ${file.type}` : ''}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="flex gap-4 pt-4">

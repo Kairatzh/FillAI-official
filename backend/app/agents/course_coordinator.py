@@ -18,12 +18,23 @@ class CourseCoordinator:
         self.lesson_agent = LessonDetailAgent()
         self.material_agent = MaterialSearchAgent()
     
-    async def generate_course(self, settings: CourseSettings) -> Course:
+    async def generate_course(
+        self,
+        settings: CourseSettings,
+        structure_override: Dict[str, Any] | None = None
+    ) -> Course:
         """Генерирует полный курс используя мультиагентную систему"""
         
-        # Шаг 1: Создаем структуру курса
+        # Шаг 1: Создаем структуру курса (или используем переданную)
         settings_dict = settings.model_dump()
-        structure = await self.structure_agent.generate_structure(settings_dict)
+        if structure_override:
+            # allow both Pydantic models and plain dicts
+            if hasattr(structure_override, "model_dump"):
+                structure = structure_override.model_dump()
+            else:
+                structure = structure_override
+        else:
+            structure = await self.structure_agent.generate_structure(settings_dict)
         
         # Шаг 2: Детализируем каждый урок параллельно с поиском материалов
         modules = []

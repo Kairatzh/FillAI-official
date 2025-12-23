@@ -1,7 +1,7 @@
 """Агент для создания структуры курса"""
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
-from typing import Dict, Any
+from typing import Dict, Any, List
 import json
 import os
 
@@ -23,6 +23,7 @@ class CourseStructureAgent:
 Продолжительность: {duration_hours} часов
 Целевая аудитория: {target_audience}
 Цели обучения: {learning_objectives}
+Переданные материалы: {reference_files}
 
 Создай детальную структуру курса, включающую:
 1. Модули (обычно 3-6 модулей в зависимости от продолжительности)
@@ -54,6 +55,15 @@ class CourseStructureAgent:
         learning_objectives_str = "\n".join(
             f"- {obj}" for obj in course_settings.get("learning_objectives", [])
         ) if course_settings.get("learning_objectives") else "Не указаны"
+
+        reference_files = course_settings.get("reference_files") or []
+        reference_summary = (
+            "\n".join(
+                f"- {item.get('name')}: {item.get('content', '')[:300]}"
+                for item in reference_files
+            )
+            if reference_files else "Не переданы"
+        )
         
         response = await chain.ainvoke({
             "title": course_settings.get("title", ""),
@@ -61,7 +71,8 @@ class CourseStructureAgent:
             "difficulty": course_settings.get("difficulty", "intermediate"),
             "duration_hours": course_settings.get("duration_hours", 10),
             "target_audience": course_settings.get("target_audience", ""),
-            "learning_objectives": learning_objectives_str
+            "learning_objectives": learning_objectives_str,
+            "reference_files": reference_summary,
         })
         
         # Парсим JSON из ответа

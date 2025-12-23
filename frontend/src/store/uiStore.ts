@@ -5,14 +5,14 @@ interface UIState {
   panelVisible: boolean;
   panelPosition: { x: number; y: number };
   searchQuery: string;
-  currentPage: 'landing' | 'graph' | 'library' | 'community' | 'profile';
+  currentPage: 'landing' | 'graph' | 'library' | 'community' | 'profile' | 'login';
   sidebarOpen: boolean;
   setCursorPosition: (x: number, y: number) => void;
   showPanel: (x: number, y: number) => void;
   hidePanel: () => void;
   updatePanelPosition: (x: number, y: number) => void;
   setSearchQuery: (query: string) => void;
-  setCurrentPage: (page: 'landing' | 'graph' | 'library' | 'community' | 'profile') => void;
+  setCurrentPage: (page: 'landing' | 'graph' | 'library' | 'community' | 'profile' | 'login') => void;
   setSidebarOpen: (open: boolean) => void;
 }
 
